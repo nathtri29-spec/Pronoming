@@ -25,6 +25,11 @@ export default function Home() {
 
     setUser(user)
 
+    if (!user) {
+  window.location.href = "/login"
+  return
+}
+
     const { data: matchesData } = await supabase
   .from("matches")
   .select("*")
@@ -41,6 +46,11 @@ export default function Home() {
         .single()
 
       if (profileData) setProfile(profileData)
+
+        if (profileData && profileData.onboarding_completed === false) {
+  window.location.href = "/onboarding"
+  return
+}
 
       const { data: predictionsData } = await supabase
         .from("predictions")
