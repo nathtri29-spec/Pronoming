@@ -45,6 +45,20 @@ export default function Home() {
         .eq("id", user.id)
         .single()
 
+        if (!profileData) {
+  await supabase.from("profiles").insert({
+    id: user.id,
+    username: user.email?.split("@")[0] || "player",
+    points: 1000,
+    xp: 0,
+    level: 1,
+    onboarding_completed: false,
+  })
+
+  window.location.href = "/onboarding"
+  return
+}
+
       if (profileData) setProfile(profileData)
 
         if (profileData && profileData.onboarding_completed === false) {
