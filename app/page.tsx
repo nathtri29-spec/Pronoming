@@ -167,11 +167,18 @@ export default function Home() {
     loadData()
   }
 
+  const maxStake = profile
+  ? Math.floor(
+      profile.points *
+      Math.min(0.1 + Math.floor((profile.level - 1) / 5) * 0.02, 0.2)
+    )
+  : 0
+
   return (
     <div className="min-h-screen bg-black pb-24 text-white">
       <div className="border-b border-zinc-800 px-4 py-4">
         <div className="flex items-center justify-between">
-          <h1 className="bg-gradient-to-r from-purple-400 to-red-500 bg-clip-text text-3xl font-extrabold text-transparent">
+          <h1 className="bg-gradient-to-r from-purple-400 to-red-500 bg-clip-text text-2xl font-extrabold text-transparent">
             PRONOMING
           </h1>
 
@@ -213,6 +220,20 @@ export default function Home() {
         </div>
 
         <div className="space-y-4">
+
+          {matches.length === 0 && (
+  <div className="mt-8 rounded-2xl border border-white/10 bg-zinc-950 p-6 text-center">
+    <p className="text-lg font-bold text-white">
+      Aucun match disponible
+    </p>
+
+    <p className="mt-2 text-sm text-zinc-500">
+      Les prochains matchs seront bientôt ajoutés.
+    </p>
+    <BottomNav />
+  </div>
+)}
+
           {matches.map((match) => {
             const alreadyPredicted = predictions.some(
               (p) => p.match_id === match.id
@@ -352,13 +373,8 @@ const formattedTime =
   className="mt-2 w-full rounded-xl border border-zinc-700 bg-zinc-900 p-4 text-white outline-none focus:border-purple-500"
 />
 
-            <p className="mt-2 text-xs text-zinc-500">
-  Mise max autorisée :{" "}
-  {Math.floor(
-    profile.points *
-      Math.min(0.1 + Math.floor((profile.level - 1) / 5) * 0.02, 0.2)
-  )}{" "}
-  pts
+            <p className="mt-2 text-sm font-bold text-white">
+  Mise maximale : {maxStake} points
 </p>
 
             <div className="mt-4 rounded-xl border border-zinc-800 bg-zinc-900 p-4">
@@ -385,16 +401,18 @@ const formattedTime =
             </button>
 
             <button
-              onClick={() => setSelectedMatch(null)}
-              className="mt-3 w-full rounded-xl border border-zinc-700 p-3 text-zinc-400"
-            >
-              CANCEL
-            </button>
-          </div>
-        </div>
-      )}
+          onClick={() => setSelectedMatch(null)}
+          className="mt-3 w-full rounded-xl border border-zinc-700 p-3"
+        >
+          CANCEL
+        </button>
+      </div>
     </div>
-  )
+  )}
+
+  <BottomNav />
+</div>
+)
 }
 
 function TeamBlock({
@@ -423,7 +441,6 @@ function TeamBlock({
       <p className="text-center text-sm font-bold">
         {name}
       </p>
-      <BottomNav />
     </div>
   )
 }

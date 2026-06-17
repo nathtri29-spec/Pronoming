@@ -8,6 +8,9 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<any>(null)
   const [predictions, setPredictions] = useState<any[]>([])
   const [stats, setStats] = useState({ wins: 0, losses: 0 })
+  const [editingUsername, setEditingUsername] = useState(false)
+  const [newUsername, setNewUsername] = useState("")
+
 
   useEffect(() => {
     fetchProfile()
@@ -59,6 +62,36 @@ export default function ProfilePage() {
   const xpNeeded = nextLevelXp - currentLevelXp
   const progressPercent = (progressXp / xpNeeded) * 100
 
+  async function updateUsername() {
+  if (!newUsername.trim()) {
+    alert("Entre un pseudo valide")
+    return
+  }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) return
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({ username: newUsername.trim() })
+    .eq("id", user.id)
+
+  if (error) {
+    alert(error.message)
+    return
+  }
+
+  setProfile({
+    ...profile,
+    username: newUsername.trim(),
+  })
+
+  setEditingUsername(false)
+}
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#17091f] via-[#0b0b12] to-black p-6 pb-24 text-white">
       <h1 className="mb-6 bg-gradient-to-r from-purple-400 to-red-500 bg-clip-text text-4xl font-bold text-transparent">
@@ -74,9 +107,39 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        <h2 className="text-3xl font-bold tracking-wide">
-          {profile.username}
-        </h2>
+        {editingUsername ? (
+  <div className="mt-3 flex gap-2">
+    <input
+      value={newUsername}
+      onChange={(e) => setNewUsername(e.target.value)}
+      placeholder="Nouveau pseudo"
+      className="w-full rounded-xl border border-zinc-700 bg-black p-3 text-white outline-none focus:border-purple-500"
+    />
+
+    <button
+      onClick={updateUsername}
+      className="rounded-xl bg-purple-600 px-4 font-bold"
+    >
+      OK
+    </button>
+  </div>
+) : (
+  <div>
+    <h2 className="text-3xl font-bold tracking-wide">
+      {profile.username}
+    </h2>
+
+    <button
+      onClick={() => {
+        setNewUsername(profile.username || "")
+        setEditingUsername(true)
+      }}
+      className="mt-2 text-xs font-bold uppercase tracking-wider text-purple-300"
+    >
+      Modifier le pseudo
+    </button>
+  </div>
+)}
 
         <p className="mt-1 text-sm font-semibold uppercase tracking-[0.25em] text-purple-300">
           ◆ ROOKIE PREDICTOR
