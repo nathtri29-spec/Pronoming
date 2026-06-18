@@ -13,6 +13,7 @@ export default function Home() {
   const [selectedTeam, setSelectedTeam] = useState("")
   const [selectedOdds, setSelectedOdds] = useState(0)
   const [stake, setStake] = useState(0)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     loadData()
@@ -26,7 +27,7 @@ export default function Home() {
     setUser(user)
 
     if (!user) {
-  window.location.href = "/login"
+  window.location.replace("/login")
   return
 }
 
@@ -55,14 +56,14 @@ export default function Home() {
     onboarding_completed: false,
   })
 
-  window.location.href = "/onboarding"
+  window.location.replace("/onboarding")
   return
 }
 
       if (profileData) setProfile(profileData)
 
         if (profileData && profileData.onboarding_completed === false) {
-  window.location.href = "/onboarding"
+  window.location.replace("/onboarding")
   return
 }
 
@@ -72,6 +73,7 @@ export default function Home() {
         .eq("user_id", user.id)
 
       if (predictionsData) setPredictions(predictionsData)
+        setLoading(false)
     }
   }
 
@@ -173,6 +175,14 @@ export default function Home() {
       Math.min(0.1 + Math.floor((profile.level - 1) / 5) * 0.02, 0.2)
     )
   : 0
+
+  if (loading) {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-black text-white">
+      Chargement...
+    </div>
+  )
+}
 
   return (
     <div className="min-h-screen bg-black pb-24 text-white">
