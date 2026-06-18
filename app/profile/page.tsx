@@ -12,6 +12,7 @@ export default function ProfilePage() {
   const [newUsername, setNewUsername] = useState("")
   const [menuOpen, setMenuOpen] = useState(false)
   const [showAvatarPicker, setShowAvatarPicker] = useState(false)
+  const [showTitlePicker, setShowTitlePicker] = useState(false)
 
   useEffect(() => {
     fetchProfile()
@@ -56,7 +57,9 @@ export default function ProfilePage() {
 
   const total = stats.wins + stats.losses
   const winrate = total > 0 ? ((stats.wins / total) * 100).toFixed(1) : "0"
-
+ const ownedTitles = profile.owned_titles
+  ? JSON.parse(profile.owned_titles)
+  : ["Rookie Predictor"]
   const currentLevelXp = ((profile.level - 1) * profile.level * 100) / 2
   const nextLevelXp = (profile.level * (profile.level + 1) * 100) / 2
   const progressXp = profile.xp - currentLevelXp
@@ -95,6 +98,29 @@ export default function ProfilePage() {
   })
 
   setEditingUsername(false)
+}
+
+async function updateTitle(title: string) {
+  if (!profile) return
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({
+      selected_title: title,
+    })
+    .eq("id", profile.id)
+
+  if (error) {
+    alert(error.message)
+    return
+  }
+
+  setProfile({
+    ...profile,
+    selected_title: title,
+  })
+
+  setShowTitlePicker(false)
 }
 
 async function logout() {
@@ -153,6 +179,16 @@ async function logout() {
         </button>
 
         <button
+  onClick={() => {
+    setShowTitlePicker(true)
+    setMenuOpen(false)
+  }}
+  className="w-full border-b border-zinc-800 px-3 py-2 text-left text-sm text-white"
+>
+  Titre
+</button>
+
+        <button
           onClick={logout}
           className="w-full px-3 py-2 text-left text-sm font-bold text-red-400"
         >
@@ -197,9 +233,41 @@ async function logout() {
   </div>
 )}
 
-        <p className="mt-1 text-sm font-semibold uppercase tracking-[0.25em] text-purple-300">
-          ◆ ROOKIE PREDICTOR
-        </p>
+        <p
+  className={`mt-1 text-sm font-bold uppercase tracking-[0.25em]
+    ${
+      profile.selected_title === "Rookie Predictor"
+  ? "text-green-400"
+  : profile.selected_title === "Risk Taker"
+  ? "text-purple-300"
+  : profile.selected_title === "Underdog Hunter"
+  ? "text-orange-400"
+  : profile.selected_title === "Rocket Analyst"
+  ? "text-cyan-400"
+  : profile.selected_title === "Clutch Master"
+  ? "text-yellow-400"
+  : profile.selected_title === "GOAT Predictor"
+  ? "bg-gradient-to-r from-yellow-300 via-pink-400 to-purple-400 bg-clip-text text-transparent"
+  : "text-white"
+    }
+  `}
+>
+  {
+  profile.selected_title === "Rookie Predictor"
+    ? "⭐ Rookie Predictor"
+    : profile.selected_title === "Risk Taker"
+    ? "⚡ Risk Taker"
+    : profile.selected_title === "Underdog Hunter"
+    ? "🎯 Underdog Hunter"
+    : profile.selected_title === "Rocket Analyst"
+    ? "🚀 Rocket Analyst"
+    : profile.selected_title === "Clutch Master"
+    ? "🔥 Clutch Master"
+    : profile.selected_title === "GOAT Predictor"
+    ? "👑 GOAT Predictor"
+    : "⭐ Rookie Predictor"
+}
+</p>
 
         <div className="mt-3 flex justify-center gap-2">
   <span className="rounded-full border border-purple-500/40 bg-purple-500/10 px-3 py-1 text-xs font-bold text-purple-300">
@@ -263,7 +331,7 @@ async function logout() {
               ? `+${Math.round((prediction.stake * prediction.odds) / 10)} XP`
               : isLost
               ? "+5 XP"
-              : "Awaiting"
+              : "Awaiting result"
 
             return (
               <div
@@ -304,6 +372,32 @@ async function logout() {
           })}
         </div>
       </div>
+      {showTitlePicker && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-6">
+    <div className="w-full max-w-sm rounded-2xl border border-zinc-800 bg-zinc-950 p-5">
+      <h2 className="mb-4 text-xl font-bold">Choisir un titre</h2>
+
+      <div className="space-y-2">
+  {ownedTitles.map((title: string) => (
+    <button
+      key={title}
+      onClick={() => updateTitle(title)}
+      className="w-full rounded-xl border border-zinc-800 bg-black/40 p-3 text-left font-bold text-white hover:border-purple-500"
+    >
+      {title}
+    </button>
+  ))}
+</div>
+
+      <button
+        onClick={() => setShowTitlePicker(false)}
+        className="mt-4 w-full rounded-xl border border-zinc-700 p-3 font-bold text-zinc-300"
+      >
+        Fermer
+      </button>
+    </div>
+  </div>
+)}
 <BottomNav />
     </div>
   )

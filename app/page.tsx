@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { BottomNav } from "@/components/bottom-nav"
+import { useRouter } from "next/navigation"
+import { FileText, Gem } from "lucide-react"
 
 export default function Home() {
   const [matches, setMatches] = useState<any[]>([])
@@ -14,6 +16,7 @@ export default function Home() {
   const [selectedOdds, setSelectedOdds] = useState(0)
   const [stake, setStake] = useState(0)
   const [loading, setLoading] = useState(true)
+  const router = useRouter()
 
   useEffect(() => {
     loadData()
@@ -27,7 +30,7 @@ export default function Home() {
     setUser(user)
 
     if (!user) {
-  window.location.replace("/login")
+  router.replace("/login")
   return
 }
 
@@ -187,23 +190,28 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-black pb-24 text-white">
       <div className="border-b border-zinc-800 px-4 py-4">
-        <div className="flex items-center justify-between">
-          <h1 className="bg-gradient-to-r from-purple-400 to-red-500 bg-clip-text text-2xl font-extrabold text-transparent">
-            PRONOMING
-          </h1>
+  <div className="flex items-center justify-between">
+    <h1 className="bg-gradient-to-r from-purple-400 to-red-500 bg-clip-text text-3xl font-extrabold text-transparent">
+      PRONOMING
+    </h1>
 
-          <div className="flex gap-2">
-            <div className="rounded-full border border-zinc-700 bg-zinc-900 px-3 py-1 text-sm font-bold">
-              💎 {profile?.points ?? 0}
-            </div>
+    <div className="flex gap-2">
+      <button
+        onClick={() => router.push("/predictions")}
+        className="flex items-center gap-2 rounded-full border border-purple-700 bg-purple-900/20 px-4 py-2 text-sm font-bold text-purple-300"
+      >
+        <FileText className="h-4 w-4" />
+        Pronos
+      </button>
 
-            <div className="rounded-full border border-purple-700 bg-purple-900/30 px-3 py-1 text-sm font-bold text-purple-300">
-              ⚡ {profile?.xp ?? 0} XP
-            </div>
-          </div>
-        </div>
+      <div className="flex items-center gap-2 rounded-full border border-zinc-700 bg-zinc-900 px-4 py-2 font-bold">
+        <Gem className="h-4 w-4 text-cyan-400" />
+        {profile?.points ?? 0}
+      </div>
+    </div>
+  </div>
 
-        <div className="mt-4">
+  <div className="mt-4">
           <div className="mb-1 flex justify-between text-xs uppercase tracking-wider text-zinc-500">
             <span>Season 1 · LV {profile?.level ?? 1}</span>
             <span>{profile?.xp ?? 0} XP</span>
@@ -240,7 +248,6 @@ export default function Home() {
     <p className="mt-2 text-sm text-zinc-500">
       Les prochains matchs seront bientôt ajoutés.
     </p>
-    <BottomNav />
   </div>
 )}
 

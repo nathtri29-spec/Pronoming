@@ -2,15 +2,15 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import {House,Trophy,User,ScrollText} from "lucide-react"
+import {House,Trophy,User,Store} from "lucide-react"
 
 export function BottomNav() {
   const pathname = usePathname()
 
 const items = [
   { href: "/", label: "Home", icon: House },
-  { href: "/predictions",label: "Pronos",icon: ScrollText, },
   { href: "/leaderboard", label: "Classement", icon: Trophy },
+  { href: "/shop", label: "Shop", icon: Store },
   { href: "/profile", label: "Profile", icon: User },
 ]
   return (
