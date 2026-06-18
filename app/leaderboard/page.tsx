@@ -24,7 +24,7 @@ export default function LeaderboardPage() {
 
   return (
     <div className="min-h-screen bg-black p-6 pb-24 text-white">
-  <h1 className="mb-2 bg-gradient-to-r from-purple-500 via-fuchsia-500 to-red-500 bg-clip-text text-4xl font-extrabold tracking-tight text-transparent">
+    <h1 className="bg-gradient-to-r from-purple-400 to-red-500 bg-clip-text text-4xl font-extrabold text-transparent">
             CLASSEMENT
           </h1>
 

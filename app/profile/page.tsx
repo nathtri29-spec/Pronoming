@@ -10,7 +10,8 @@ export default function ProfilePage() {
   const [stats, setStats] = useState({ wins: 0, losses: 0 })
   const [editingUsername, setEditingUsername] = useState(false)
   const [newUsername, setNewUsername] = useState("")
-
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [showAvatarPicker, setShowAvatarPicker] = useState(false)
 
   useEffect(() => {
     fetchProfile()
@@ -61,6 +62,10 @@ export default function ProfilePage() {
   const progressXp = profile.xp - currentLevelXp
   const xpNeeded = nextLevelXp - currentLevelXp
   const progressPercent = (progressXp / xpNeeded) * 100
+  const maxStakePercent = Math.min(
+  10 + Math.floor((profile.level - 1) / 5) * 2,
+  20
+)
 
   async function updateUsername() {
   if (!newUsername.trim()) {
@@ -92,11 +97,72 @@ export default function ProfilePage() {
   setEditingUsername(false)
 }
 
+async function logout() {
+  await supabase.auth.signOut()
+  window.location.replace("/login")
+}
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#17091f] via-[#0b0b12] to-black p-6 pb-24 text-white">
-      <h1 className="mb-6 bg-gradient-to-r from-purple-400 to-red-500 bg-clip-text text-4xl font-bold text-transparent">
-        PRONOMING
-      </h1>
+     <div className="mb-6 flex items-start justify-between">
+  <div>
+    <h1 className="bg-gradient-to-r from-purple-500 via-fuchsia-500 to-red-500 bg-clip-text text-3xl font-extrabold text-transparent">
+      PROFILE
+    </h1>
+
+    <p className="text-sm text-zinc-500">
+      Ton espace personnel
+    </p>
+  </div>
+
+  <div className="relative">
+  <button
+    onClick={() => setMenuOpen(!menuOpen)}
+    className="rounded-lg border border-zinc-700 bg-zinc-900 p-2"
+  >
+    ⚙️
+  </button>
+
+  {menuOpen && (
+    <>
+      <div
+        className="fixed inset-0 z-40"
+        onClick={() => setMenuOpen(false)}
+      />
+
+      <div className="absolute right-0 top-12 z-50 w-40 overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950 shadow-xl">
+        <button
+          onClick={() => {
+            setNewUsername(profile.username || "")
+            setEditingUsername(true)
+            setMenuOpen(false)
+          }}
+          className="w-full border-b border-zinc-800 px-3 py-2 text-left text-sm text-white"
+        >
+          Pseudo
+        </button>
+
+        <button
+          onClick={() => {
+            setShowAvatarPicker(true)
+            setMenuOpen(false)
+          }}
+          className="w-full border-b border-zinc-800 px-3 py-2 text-left text-sm text-zinc-400"
+        >
+          Avatar
+        </button>
+
+        <button
+          onClick={logout}
+          className="w-full px-3 py-2 text-left text-sm font-bold text-red-400"
+        >
+          Déconnexion
+        </button>
+      </div>
+    </>
+  )}
+</div>
+</div>
 
       <div className="p-6 text-center">
         <div className="relative mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-purple-600 to-red-600 text-4xl font-bold shadow-[0_0_25px_rgba(225,29,72,0.35)]">
@@ -128,22 +194,22 @@ export default function ProfilePage() {
     <h2 className="text-3xl font-bold tracking-wide">
       {profile.username}
     </h2>
-
-    <button
-      onClick={() => {
-        setNewUsername(profile.username || "")
-        setEditingUsername(true)
-      }}
-      className="mt-2 text-xs font-bold uppercase tracking-wider text-purple-300"
-    >
-      Modifier le pseudo
-    </button>
   </div>
 )}
 
         <p className="mt-1 text-sm font-semibold uppercase tracking-[0.25em] text-purple-300">
           ◆ ROOKIE PREDICTOR
         </p>
+
+        <div className="mt-3 flex justify-center gap-2">
+  <span className="rounded-full border border-purple-500/40 bg-purple-500/10 px-3 py-1 text-xs font-bold text-purple-300">
+    LV {profile.level}
+  </span>
+
+  <span className="rounded-full border border-red-500/40 bg-red-500/10 px-3 py-1 text-xs font-bold text-red-300">
+    Mise max {maxStakePercent}%
+  </span>
+</div>
 
         <div className="mt-6">
           <div className="mb-2 flex justify-between text-xs uppercase tracking-wider text-zinc-400">
@@ -238,7 +304,7 @@ export default function ProfilePage() {
           })}
         </div>
       </div>
-        <BottomNav />
+<BottomNav />
     </div>
   )
 }
