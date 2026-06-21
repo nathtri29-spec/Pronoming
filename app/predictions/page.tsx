@@ -53,7 +53,7 @@ export default function PredictionsPage() {
 
       <div className="my-6 h-px w-full bg-white/10" />
 
-      <div className="mb-6 flex gap-2 overflow-x-auto">
+      <div className="mb-6 flex flex-wrap gap-2">
   {[
     { key: "all", label: "Tous" },
     { key: "pending", label: "En attente" },
@@ -63,7 +63,7 @@ export default function PredictionsPage() {
     <button
       key={item.key}
       onClick={() => setFilter(item.key)}
-      className={`rounded-full px-4 py-2 text-sm font-bold ${
+      className={`rounded-full px-3 py-2 text-sm font-bold transition-all ${
         filter === item.key
           ? "bg-purple-600 text-white"
           : "bg-zinc-900 text-zinc-500"
