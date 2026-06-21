@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { BottomNav } from "@/components/bottom-nav"
+import { title } from "process"
 
 const titles = [
   {
@@ -55,6 +56,8 @@ export default function ShopPage() {
   useEffect(() => {
     loadProfile()
   }, [])
+
+  const [purchaseAnimation, setPurchaseAnimation] = useState<string | null>(null)
 
   async function loadProfile() {
     const {
@@ -113,7 +116,13 @@ export default function ShopPage() {
       points: profile.points - title.price,
       owned_titles: newOwnedTitles,
     })
-  }
+  setPurchaseAnimation(title.name)
+
+setTimeout(() => {
+  setPurchaseAnimation(null)
+}, 3000)
+
+}
 
   async function equipTitle(titleName: string) {
     if (!profile) return
@@ -197,22 +206,36 @@ export default function ShopPage() {
                 </p>
 
                 <button
-                  onClick={() => buyTitle(title)}
-                  className={`mt-3 w-full rounded-lg px-2 py-2 text-xs font-bold ${
-                    equipped
-                      ? "bg-green-600 text-white"
-                      : owned
-                      ? "border border-purple-500 text-purple-300"
-                      : "bg-gradient-to-r from-purple-600 to-red-600 text-white"
-                  }`}
-                >
-                  {owned ? "Acheté" : "Acheter"}
-                </button>
+  onClick={() => {
+    if (!owned) buyTitle(title)
+  }}
+  disabled={owned}
+  className={`mt-3 w-full rounded-lg px-2 py-2 text-xs font-bold ${
+    owned
+      ? "border border-purple-500 text-purple-300"
+      : "bg-gradient-to-r from-purple-600 to-red-600 text-white"
+  }`}
+>
+  {owned ? "Acheté" : "Acheter"}
+</button>
               </div>
             )
           })}
         </div>
       </div>
+      {purchaseAnimation && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+    <div className="animate-pulse rounded-3xl border border-purple-500 bg-zinc-950 px-8 py-6 text-center shadow-[0_0_40px_rgba(168,85,247,0.6)]">
+      <p className="text-4xl">💎</p>
+      <p className="mt-3 text-xl font-extrabold text-white">
+        Titre acheté !
+      </p>
+      <p className="mt-1 text-sm font-bold text-purple-300">
+        {purchaseAnimation}
+      </p>
+    </div>
+  </div>
+)}
 
       <BottomNav />
     </div>

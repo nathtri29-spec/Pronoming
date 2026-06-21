@@ -41,12 +41,12 @@ export default function LeaderboardPage() {
             🏆 SEASON RANKINGS
           </h2>
 
-          <span className="rounded-full border border-red-500/40 bg-red-500/10 px-3 py-1 text-xs font-bold text-red-300">
+          <span className="rounded-full border border-purple-400/50 bg-purple-500/10 px-4 py-1.5 text-sm font-extrabold tracking-wide text-purple-300 shadow-[0_0_14px_rgba(168,85,247,0.22)]">
             SEASON 1
           </span>
         </div>
 
-        <div className="space-y-1">
+        <div className="space-y-3">
           {players.map((player, index) => {
             const rank = index + 1
 
@@ -61,9 +61,17 @@ export default function LeaderboardPage() {
 
             return (
               <div
-                key={player.id}
-                className="flex items-center gap-3 py-4 relative"
-              >
+  key={player.id}
+  className={`flex items-center gap-3 rounded-2xl border bg-zinc-950/70 p-4 transition-all ${
+  rank === 1
+    ? "border-yellow-400 bg-yellow-500/10 shadow-[0_0_28px_rgba(250,204,21,0.35)]"
+    : rank === 2
+    ? "border-zinc-200 bg-zinc-100/10 shadow-[0_0_24px_rgba(255,255,255,0.22)]"
+    : rank === 3
+    ? "border-orange-400 bg-orange-500/10 shadow-[0_0_28px_rgba(251,146,60,0.32)]"
+    : "border-white/20 bg-zinc-950/90"
+  }`}
+>
                 <div
   className={`w-8 text-center text-xl font-extrabold ${rankStyle}`}
 >

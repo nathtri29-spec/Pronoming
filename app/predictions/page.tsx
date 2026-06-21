@@ -74,7 +74,7 @@ export default function PredictionsPage() {
   ))}
 </div>
 
-<div className="space-y-4">
+<div className="space-y-3">
   {filteredPredictions.map((prediction) => {
           const isWon = prediction.status === "won"
           const isLost = prediction.status === "lost"
@@ -86,7 +86,13 @@ export default function PredictionsPage() {
           return (
             <div
               key={prediction.id}
-              className="border-b border-white/10 pb-4"
+              className={`rounded-2xl border p-4 transition-all ${
+  isWon
+    ? "border-green-400/60 shadow-[0_0_18px_rgba(74,222,128,0.22)]"
+    : isLost
+    ? "border-red-400/60 shadow-[0_0_18px_rgba(248,113,113,0.18)]"
+    : "border-purple-400/40 shadow-[0_0_14px_rgba(168,85,247,0.14)]"
+}`}
             >
               <div className="mb-2 flex items-center justify-between">
                 <div>
@@ -133,16 +139,28 @@ export default function PredictionsPage() {
               </div>
 
               {isWon && (
-                <p className="mt-2 font-bold text-green-400">
-                  +{gain} pts
-                </p>
-              )}
+  <div className="mt-2">
+    <p className="font-bold text-green-400">
+      +{gain} pts
+    </p>
+
+    <p className="text-sm font-bold text-purple-300">
+      +{Math.round(gain / 10)} XP
+    </p>
+  </div>
+)}
 
               {isLost && (
-                <p className="mt-2 font-bold text-red-400">
-                  -{prediction.stake} pts
-                </p>
-              )}
+  <div className="mt-2">
+    <p className="font-bold text-red-400">
+      -{prediction.stake} pts
+    </p>
+
+    <p className="text-sm font-bold text-purple-300">
+      +5 XP
+    </p>
+  </div>
+)}
             </div>
           )
         })}

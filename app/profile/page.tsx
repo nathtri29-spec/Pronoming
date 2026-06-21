@@ -233,41 +233,55 @@ async function logout() {
   </div>
 )}
 
-        <p
-  className={`mt-1 text-sm font-bold uppercase tracking-[0.25em]
-    ${
-      profile.selected_title === "Rookie Predictor"
-  ? "text-green-400"
-  : profile.selected_title === "Risk Taker"
-  ? "text-purple-300"
-  : profile.selected_title === "Underdog Hunter"
-  ? "text-orange-400"
-  : profile.selected_title === "Rocket Analyst"
-  ? "text-cyan-400"
-  : profile.selected_title === "Clutch Master"
-  ? "text-yellow-400"
-  : profile.selected_title === "GOAT Predictor"
-  ? "bg-gradient-to-r from-yellow-300 via-pink-400 to-purple-400 bg-clip-text text-transparent"
-  : "text-white"
-    }
-  `}
+       <div
+  className={`mt-3 inline-flex items-center rounded-full border px-4 py-2 shadow-[0_0_20px_rgba(124,58,237,0.18)] ${
+    profile.selected_title === "Rookie Predictor"
+      ? "border-green-500/50 bg-green-500/10"
+      : profile.selected_title === "Risk Taker"
+      ? "border-purple-500/50 bg-purple-500/10"
+      : profile.selected_title === "Underdog Hunter"
+      ? "border-orange-500/50 bg-orange-500/10"
+      : profile.selected_title === "Rocket Analyst"
+      ? "border-cyan-500/50 bg-cyan-500/10"
+      : profile.selected_title === "Clutch Master"
+      ? "border-yellow-500/50 bg-yellow-500/10"
+      : profile.selected_title === "GOAT Predictor"
+      ? "border-pink-500/60 bg-gradient-to-r from-yellow-500/10 via-pink-500/10 to-purple-500/10"
+      : "border-zinc-700 bg-zinc-900"
+  }`}
 >
-  {
-  profile.selected_title === "Rookie Predictor"
-    ? "⭐ Rookie Predictor"
-    : profile.selected_title === "Risk Taker"
-    ? "⚡ Risk Taker"
-    : profile.selected_title === "Underdog Hunter"
-    ? "🎯 Underdog Hunter"
-    : profile.selected_title === "Rocket Analyst"
-    ? "🚀 Rocket Analyst"
-    : profile.selected_title === "Clutch Master"
-    ? "🔥 Clutch Master"
-    : profile.selected_title === "GOAT Predictor"
-    ? "👑 GOAT Predictor"
-    : "⭐ Rookie Predictor"
-}
-</p>
+  <p
+    className={`text-sm font-extrabold uppercase tracking-[0.18em] ${
+      profile.selected_title === "Rookie Predictor"
+        ? "text-green-400"
+        : profile.selected_title === "Risk Taker"
+        ? "text-purple-300"
+        : profile.selected_title === "Underdog Hunter"
+        ? "text-orange-400"
+        : profile.selected_title === "Rocket Analyst"
+        ? "text-cyan-400"
+        : profile.selected_title === "Clutch Master"
+        ? "text-yellow-400"
+        : profile.selected_title === "GOAT Predictor"
+        ? "bg-gradient-to-r from-yellow-300 via-pink-400 to-purple-400 bg-clip-text text-transparent"
+        : "text-white"
+    }`}
+  >
+    {profile.selected_title === "Rookie Predictor"
+      ? "⭐ Rookie Predictor"
+      : profile.selected_title === "Risk Taker"
+      ? "⚡ Risk Taker"
+      : profile.selected_title === "Underdog Hunter"
+      ? "🎯 Underdog Hunter"
+      : profile.selected_title === "Rocket Analyst"
+      ? "🚀 Rocket Analyst"
+      : profile.selected_title === "Clutch Master"
+      ? "🔥 Clutch Master"
+      : profile.selected_title === "GOAT Predictor"
+      ? "👑 GOAT Predictor"
+      : "⭐ Rookie Predictor"}
+  </p>
+</div>
 
         <div className="mt-3 flex justify-center gap-2">
   <span className="rounded-full border border-purple-500/40 bg-purple-500/10 px-3 py-1 text-xs font-bold text-purple-300">

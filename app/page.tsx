@@ -191,7 +191,7 @@ export default function Home() {
     <div className="min-h-screen bg-black pb-24 text-white">
       <div className="border-b border-zinc-800 px-4 py-4">
   <div className="flex items-center justify-between">
-    <h1 className="bg-gradient-to-r from-purple-400 to-red-500 bg-clip-text text-3xl font-extrabold text-transparent">
+    <h1 className="bg-gradient-to-r from-purple-400 to-red-500 bg-clip-text text-2xl font-extrabold text-transparent">
       PRONOMING
     </h1>
 
@@ -201,7 +201,7 @@ export default function Home() {
         className="flex items-center gap-2 rounded-full border border-purple-700 bg-purple-900/20 px-4 py-2 text-sm font-bold text-purple-300"
       >
         <FileText className="h-4 w-4" />
-        Pronos
+        Mes Pronos
       </button>
 
       <div className="flex items-center gap-2 rounded-full border border-zinc-700 bg-zinc-900 px-4 py-2 font-bold">
