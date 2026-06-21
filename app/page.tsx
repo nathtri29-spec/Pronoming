@@ -198,16 +198,18 @@ export default function Home() {
     <div className="flex gap-2">
       <button
         onClick={() => router.push("/predictions")}
-        className="flex items-center gap-2 rounded-full border border-purple-700 bg-purple-900/20 px-4 py-2 text-sm font-bold text-purple-300"
+        className="flex items-center gap-1.5 rounded-full border border-purple-700 bg-purple-900/20 px-3 py-2 text-sm font-bold text-purple-300"
       >
-        <FileText className="h-4 w-4" />
-        Mes Pronos
+        <FileText className="h-4 w-4 shrink-0" />
+
+<span className="sm:hidden">Pronos</span>
+<span className="hidden sm:inline">Mes Pronos</span>
       </button>
 
-      <div className="flex items-center gap-2 rounded-full border border-zinc-700 bg-zinc-900 px-4 py-2 font-bold">
-        <Gem className="h-4 w-4 text-cyan-400" />
-        {profile?.points ?? 0}
-      </div>
+      <div className="flex items-center gap-1.5 rounded-lg border border-blue-400/40 bg-blue-500/15 px-2.5 py-1.5 text-sm font-bold text-blue-200 shadow-[0_0_14px_rgba(59,130,246,0.18)]">
+  <Gem className="h-3.5 w-3.5 text-cyan-300" />
+  <span>{profile?.points ?? 0}</span>
+</div>
     </div>
   </div>
 
