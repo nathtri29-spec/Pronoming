@@ -17,6 +17,7 @@ export default function Home() {
   const [stake, setStake] = useState(0)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
+  const [predictionSuccess, setPredictionSuccess] = useState<string | null>(null)
 
   useEffect(() => {
     loadData()
@@ -169,6 +170,11 @@ export default function Home() {
     setSelectedOdds(0)
     setStake(0)
 
+    setPredictionSuccess(selectedTeam)
+
+setTimeout(() => {
+  setPredictionSuccess(null)
+}, 2000)
     loadData()
   }
 
@@ -358,8 +364,14 @@ const formattedTime =
       </main>
 
       {selectedMatch && (
-        <div className="fixed inset-0 z-50 flex items-end bg-black/80">
-          <div className="w-full rounded-t-3xl border-t-2 border-purple-600 bg-zinc-950 p-6">
+       <div
+  className="fixed inset-0 z-50 flex items-end bg-black/80 animate-backdropFade"
+  onClick={() => setSelectedMatch(null)}
+>
+         <div
+className="w-full animate-sheetBounceUp rounded-t-3xl border-t-2 border-purple-600 bg-zinc-950 p-6"
+  onClick={(e) => e.stopPropagation()}
+>
             <div className="mx-auto mb-5 h-1 w-12 rounded-full bg-zinc-700" />
 
             <h2 className="text-2xl font-bold">
@@ -428,6 +440,22 @@ const formattedTime =
       </div>
     </div>
   )}
+
+  {predictionSuccess && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+    <div className="rounded-3xl border border-purple-500 bg-zinc-950 px-8 py-6 text-center shadow-[0_0_40px_rgba(168,85,247,0.6)] animate-pulse">
+      <p className="text-4xl">✓</p>
+
+      <p className="mt-3 text-xl font-extrabold text-white">
+        Prédiction validée
+      </p>
+
+      <p className="mt-1 text-sm font-bold text-purple-300">
+        {predictionSuccess}
+      </p>
+    </div>
+  </div>
+)}
 
   <BottomNav />
 </div>

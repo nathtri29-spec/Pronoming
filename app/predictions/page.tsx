@@ -44,7 +44,7 @@ export default function PredictionsPage() {
   return (
     <div className="min-h-screen bg-black p-6 pb-24 text-white">
         <h1 className="bg-gradient-to-r from-purple-400 to-red-500 bg-clip-text text-4xl font-extrabold text-transparent">
-        PRONOSTIQUES
+        PRONOSTICS
       </h1>
 
       <p className="mb-8 text-zinc-500">

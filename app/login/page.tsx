@@ -89,7 +89,7 @@ export default function LoginPage() {
         </h1>
 
         <p className="mt-3 text-zinc-400">
-          Rocket League Esports Predictions
+          Competitive Esports Predictions
         </p>
 
         <p className="mt-1 text-sm text-zinc-600">

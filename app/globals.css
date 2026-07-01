@@ -123,4 +123,35 @@
   body {
     @apply bg-background text-foreground;
   }
+@keyframes backdropFade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes sheetBounceUp {
+  0% {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  80% {
+    transform: translateY(-8px);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-backdropFade {
+  animation: backdropFade 0.25s ease-out;
+}
+
+.animate-sheetBounceUp {
+  animation: sheetBounceUp 0.38s cubic-bezier(0.22, 1, 0.36, 1);
+}
 }

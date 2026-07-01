@@ -9,8 +9,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: 'PRONOMING | Rocket League Esports Predictions',
-  description: 'Predict Rocket League esports matches and compete with virtual points',
+  title: 'PRONOMING | Competitive Esports Predictions',
+  description: 'Predict competitive esports matches and compete with virtual points',
   generator: 'v0.app',
   icons: {
     icon: [
