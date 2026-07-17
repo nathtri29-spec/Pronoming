@@ -155,3 +155,12 @@
   animation: sheetBounceUp 0.38s cubic-bezier(0.22, 1, 0.36, 1);
 }
 }
+
+@keyframes shine {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}

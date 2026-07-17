@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase"
 
 export default function AdminPage() {
   const [matches, setMatches] = useState<any[]>([])
+  const [tab, setTab] = useState<"pending" | "resolved">("pending")
 
   useEffect(() => {
     fetchMatches()
@@ -21,13 +22,46 @@ export default function AdminPage() {
     }
   }
 
+  const pendingCount = matches.filter((match) => !match.winner).length
+const resolvedCount = matches.filter((match) => !!match.winner).length
+
   return (
     <div className="min-h-screen bg-black text-white p-8">
       <h1 className="text-4xl font-bold mb-6">
         Admin Panel
       </h1>
 
-      {matches.map((match) => (
+<div className="mb-6 flex gap-2">
+  <button
+    onClick={() => setTab("pending")}
+    className={`rounded-full px-4 py-2 font-bold ${
+      tab === "pending"
+        ? "bg-purple-600 text-white"
+        : "bg-zinc-900 text-zinc-400"
+    }`}
+  >
+    À résoudre ({pendingCount})
+  </button>
+
+  <button
+    onClick={() => setTab("resolved")}
+    className={`rounded-full px-4 py-2 font-bold ${
+      tab === "resolved"
+        ? "bg-purple-600 text-white"
+        : "bg-zinc-900 text-zinc-400"
+    }`}
+  >
+    Résolus ({resolvedCount})
+  </button>
+</div>
+
+      {matches
+  .filter((match) =>
+    tab === "pending"
+      ? !match.winner
+      : !!match.winner
+  )
+  .map((match) => (
         <div
           key={match.id}
           className="mb-4 rounded-xl bg-zinc-900 p-4"
