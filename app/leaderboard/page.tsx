@@ -214,11 +214,8 @@ export default function LeaderboardPage() {
 
         return (
   <div
-    key={player.id}
-    onClick={ () => {
-      console.log(player.id)
-      router.push(`/profile/${player.id}`)
-    }}
+  key={player.id}
+  onClick={() => router.push(`/profile/${player.id}`)}
     className={`flex items-center gap-4 rounded-2xl border bg-zinc-950/90 p-4 transition-all duration-300 hover:scale-[1.01] ${
       isMe
         ? "border-purple-400 shadow-[0_0_26px_rgba(168,85,247,0.38)]"
