@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
-import { BottomNav } from "@/components/bottom-nav"
-import { title } from "process"
+import { RewardPopup } from "@/components/reward-popup"
+import { ShopSkeleton } from "@/components/shop-skeleton"
+import { Gem, Gamepad2 } from "lucide-react"
 
 const titles = [
   {
@@ -91,31 +92,24 @@ export default function ShopPage() {
       return
     }
 
+    // Vérification locale pour un retour instantané ; le prix réel et le
+    // débit des points sont revérifiés côté serveur par buy_title, qui
+    // seule fait foi.
     if (profile.points < title.price) {
       alert("Tu n'as pas assez de points")
       return
     }
 
-    const newOwnedTitles = [...ownedTitles, title.name]
-
-    const { error } = await supabase
-      .from("profiles")
-      .update({
-  points: profile.points - title.price,
-  owned_titles: JSON.stringify(newOwnedTitles),
-})
-      .eq("id", profile.id)
+    const { data, error } = await supabase.rpc("buy_title", {
+      p_title_name: title.name,
+    })
 
     if (error) {
       alert(error.message)
       return
     }
 
-    setProfile({
-      ...profile,
-      points: profile.points - title.price,
-      owned_titles: newOwnedTitles,
-    })
+    setProfile(data)
   setPurchaseAnimation(title.name)
 
 setTimeout(() => {
@@ -144,18 +138,19 @@ setTimeout(() => {
   }
 
   if (!profile) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-black text-white">
-        Chargement...
-      </div>
-    )
+    return <ShopSkeleton />
   }
 
   return (
     <div className="min-h-screen bg-black p-6 pb-24 text-white">
       <div className="mb-6 flex items-start justify-between">
         <div>
-          <h1 className="bg-gradient-to-r from-purple-500 to-red-500 bg-clip-text text-3xl font-extrabold text-transparent">
+          <h1
+            className="inline-block bg-clip-text text-3xl font-extrabold text-transparent"
+            style={{
+              backgroundImage: "linear-gradient(to right, #c084fc, #dc2626 80%)",
+            }}
+          >
             SHOP
           </h1>
 
@@ -164,8 +159,8 @@ setTimeout(() => {
           </p>
         </div>
 
-        <div className="flex items-center gap-2 rounded-full border border-zinc-700 bg-zinc-900 px-4 py-2">
-          <span>💎</span>
+        <div className="flex items-center gap-2 rounded-full border border-blue-400/40 bg-blue-500/15 px-4 py-2 text-blue-200 shadow-[0_0_14px_rgba(59,130,246,0.18)]">
+          <Gamepad2 className="h-4 w-4 text-cyan-300" strokeWidth={2.2} />
           <span className="font-bold">{profile.points}</span>
         </div>
       </div>
@@ -201,8 +196,15 @@ setTimeout(() => {
                   {title.description}
                 </p>
 
-                <p className="mt-3 text-sm font-bold text-cyan-300">
-                  {title.price === 0 ? "Gratuit" : `💎 ${title.price}`}
+                <p className="mt-3 flex items-center gap-1 text-sm font-bold text-cyan-300">
+                  {title.price === 0 ? (
+                    "Gratuit"
+                  ) : (
+                    <>
+                      <Gamepad2 className="h-3.5 w-3.5" strokeWidth={2.2} />
+                      {title.price}
+                    </>
+                  )}
                 </p>
 
                 <button
@@ -223,21 +225,13 @@ setTimeout(() => {
           })}
         </div>
       </div>
-      {purchaseAnimation && (
-  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-    <div className="animate-pulse rounded-3xl border border-purple-500 bg-zinc-950 px-8 py-6 text-center shadow-[0_0_40px_rgba(168,85,247,0.6)]">
-      <p className="text-4xl">💎</p>
-      <p className="mt-3 text-xl font-extrabold text-white">
-        Titre acheté !
-      </p>
-      <p className="mt-1 text-sm font-bold text-purple-300">
-        {purchaseAnimation}
-      </p>
-    </div>
-  </div>
-)}
+      <RewardPopup
+        visible={!!purchaseAnimation}
+        icon={<Gem className="h-8 w-8 text-white" strokeWidth={2.5} />}
+        title="Titre acheté !"
+        subtitle={purchaseAnimation ?? undefined}
+      />
 
-      <BottomNav />
     </div>
   )
 }

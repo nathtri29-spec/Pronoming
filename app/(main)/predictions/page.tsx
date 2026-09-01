@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
-import { BottomNav } from "@/components/bottom-nav"
 
 export default function PredictionsPage() {
   const [predictions, setPredictions] = useState<any[]>([])
@@ -43,7 +42,12 @@ export default function PredictionsPage() {
 
   return (
     <div className="min-h-screen bg-black p-6 pb-24 text-white">
-        <h1 className="bg-gradient-to-r from-purple-400 to-red-500 bg-clip-text text-4xl font-extrabold text-transparent">
+        <h1
+        className="inline-block bg-clip-text text-4xl font-extrabold text-transparent"
+        style={{
+          backgroundImage: "linear-gradient(to right, #c084fc, #dc2626 80%)",
+        }}
+      >
         PRONOSTICS
       </h1>
 
@@ -134,7 +138,7 @@ export default function PredictionsPage() {
                 </span>
 
                 <span>
-                  Odds : {prediction.odds}
+                  Odds : {Number(prediction.odds).toFixed(2)}
                 </span>
               </div>
 
@@ -147,6 +151,12 @@ export default function PredictionsPage() {
     <p className="text-sm font-bold text-purple-300">
       +{Math.round(gain / 10)} XP
     </p>
+
+    {prediction.rating_delta != null && (
+      <p className="text-sm font-bold text-red-400">
+        +{prediction.rating_delta} PR
+      </p>
+    )}
   </div>
 )}
 
@@ -159,6 +169,12 @@ export default function PredictionsPage() {
     <p className="text-sm font-bold text-purple-300">
       +5 XP
     </p>
+
+    {prediction.rating_delta != null && (
+      <p className="text-sm font-bold text-red-400">
+        {prediction.rating_delta} PR
+      </p>
+    )}
   </div>
 )}
             </div>
@@ -166,7 +182,6 @@ export default function PredictionsPage() {
         })}
       </div>
 
-      <BottomNav />
     </div>
   )
 }

@@ -1,15 +1,53 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 
 export default function AdminPage() {
   const [matches, setMatches] = useState<any[]>([])
   const [tab, setTab] = useState<"pending" | "resolved">("pending")
+  const [checkingAccess, setCheckingAccess] = useState(true)
+  const [resolvingId, setResolvingId] = useState<string | null>(null)
+  const [season, setSeason] = useState<any>(null)
+  const [closingSeason, setClosingSeason] = useState(false)
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
+  const router = useRouter()
+
+  function showSuccess(message: string) {
+    setSuccessMessage(message)
+    setTimeout(() => setSuccessMessage(null), 2500)
+  }
 
   useEffect(() => {
-    fetchMatches()
+    checkAccess()
   }, [])
+
+  async function checkAccess() {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) {
+      router.replace("/login")
+      return
+    }
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("is_admin")
+      .eq("id", user.id)
+      .single()
+
+    if (!profile?.is_admin) {
+      router.replace("/")
+      return
+    }
+
+    setCheckingAccess(false)
+    fetchMatches()
+    fetchSeason()
+  }
 
   async function fetchMatches() {
     const { data } = await supabase
@@ -22,14 +60,109 @@ export default function AdminPage() {
     }
   }
 
+  async function fetchSeason() {
+    const { data } = await supabase
+      .from("seasons")
+      .select("*")
+      .eq("status", "active")
+      .order("number", { ascending: false })
+      .limit(1)
+      .single()
+
+    if (data) {
+      setSeason(data)
+    }
+  }
+
+  async function closeSeason() {
+    if (
+      !confirm(
+        "Clôturer la saison ? Le rang de fin de saison sera enregistré pour tout le monde, un titre sera distribué selon le rang atteint, et le PR de chacun sera rapproché du milieu. Cette action est irréversible."
+      )
+    ) {
+      return
+    }
+
+    setClosingSeason(true)
+
+    const closedNumber = season?.number
+
+    const { error } = await supabase.rpc("close_season")
+
+    setClosingSeason(false)
+
+    if (error) {
+      alert(error.message)
+      return
+    }
+
+    fetchSeason()
+    showSuccess(`Saison ${closedNumber} clôturée`)
+  }
+
+  async function resolveMatch(matchId: string, winner: string) {
+    setResolvingId(matchId)
+
+    const { error } = await supabase.rpc("resolve_match", {
+      p_match_id: matchId,
+      p_winner: winner,
+    })
+
+    setResolvingId(null)
+
+    if (error) {
+      alert(error.message)
+      return
+    }
+
+    fetchMatches()
+    showSuccess(`${winner} déclaré vainqueur`)
+  }
+
+  if (checkingAccess) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-black text-white">
+        Vérification des accès...
+      </div>
+    )
+  }
+
   const pendingCount = matches.filter((match) => !match.winner).length
 const resolvedCount = matches.filter((match) => !!match.winner).length
 
   return (
     <div className="min-h-screen bg-black text-white p-8">
-      <h1 className="text-4xl font-bold mb-6">
+      <h1
+        className="inline-block bg-clip-text text-4xl font-bold text-transparent mb-6"
+        style={{
+          backgroundImage: "linear-gradient(to right, #c084fc, #dc2626 80%)",
+        }}
+      >
         Admin Panel
       </h1>
+
+      {successMessage && (
+        <div className="mb-6 rounded-xl border border-green-400/40 bg-green-500/10 px-4 py-3 font-bold text-green-400">
+          ✓ {successMessage}
+        </div>
+      )}
+
+      <div className="mb-6 flex items-center justify-between rounded-xl bg-zinc-900 p-4">
+        <div>
+          <p className="text-sm text-zinc-400">Saison en cours</p>
+          <p className="text-xl font-bold">
+            {season ? `Saison ${season.number}` : "Chargement..."}
+          </p>
+        </div>
+
+        <button
+          disabled={!season || closingSeason}
+          onClick={closeSeason}
+          className="rounded bg-red-600 px-3 py-2 font-bold disabled:opacity-40"
+        >
+          {closingSeason ? "Clôture..." : "Clôturer la saison"}
+        </button>
+      </div>
 
 <div className="mb-6 flex gap-2">
   <button
@@ -73,105 +206,24 @@ const resolvedCount = matches.filter((match) => !!match.winner).length
           <p>
             Winner : {match.winner || "Aucun"}
           </p>
-        <button
-  className="mt-3 bg-green-600 px-3 py-2 rounded"
-  onClick={async () => {
-    const { data: predictions } = await supabase
-      .from("predictions")
-      .select("*")
-      .eq("match_id", match.id)
-
-    if (!predictions) return
-
-    for (const prediction of predictions) {
-        if (prediction.status !== "pending") {
-  continue
-}
-      const status =
-        prediction.selected_team === match.winner
-          ? "won"
-          : "lost"
-
-         if (status === "won") {
-  const gain = Math.round(prediction.stake * prediction.odds)
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("points, xp, level")
-    .eq("id", prediction.user_id)
-    .single()
-
-  if (profile) {
-    const xpGain = Math.round(gain / 10)
-
-    const newXp = profile.xp + xpGain
-
-    let newLevel = profile.level
-
-    while (
-      newXp >= (newLevel * (newLevel + 1) * 100) / 2
-    ) {
-      newLevel++
-    }
-    await supabase
-  .from("predictions")
-  .update({ status })
-  .eq("id", prediction.id)
-
-    await supabase
-      .from("profiles")
-      .update({
-        points: profile.points + gain,
-        xp: newXp,
-        level: newLevel,
-      })
-      .eq("id", prediction.user_id)
-  }
-}
-
-     
-    }
-
-    alert("Prédictions résolues")
-  }}
->
-  Resolve Predictions
-</button>
 
           <div className="mt-3 flex gap-2">
-<button
-  className="bg-purple-600 px-3 py-2 rounded"
-  onClick={async () => {
-    const { error } = await supabase
-      .from("matches")
-      .update({ winner: match.team_a })
-      .eq("id", match.id)
+            <button
+              disabled={!!match.winner || resolvingId === match.id}
+              className="bg-purple-600 px-3 py-2 rounded disabled:opacity-40"
+              onClick={() => resolveMatch(match.id, match.team_a)}
+            >
+              {resolvingId === match.id ? "Résolution..." : `${match.team_a} gagne`}
+            </button>
 
-    if (error) {
-      alert(error.message)
-      return
-    }
-
-    fetchMatches()
-  }}
->
-  {match.team_a} gagne
-</button>
-
-  <button
-    className="bg-red-600 px-3 py-2 rounded"
-    onClick={async () => {
-      await supabase
-        .from("matches")
-        .update({ winner: match.team_b })
-        .eq("id", match.id)
-
-      fetchMatches()
-    }}
-  >
-    {match.team_b} gagne
-  </button>
-</div>
+            <button
+              disabled={!!match.winner || resolvingId === match.id}
+              className="bg-red-600 px-3 py-2 rounded disabled:opacity-40"
+              onClick={() => resolveMatch(match.id, match.team_b)}
+            >
+              {resolvingId === match.id ? "Résolution..." : `${match.team_b} gagne`}
+            </button>
+          </div>
         </div>
       ))}
     </div>

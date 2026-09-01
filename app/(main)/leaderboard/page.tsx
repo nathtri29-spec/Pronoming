@@ -1,35 +1,35 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Info, Trophy,TrendingUp } from "lucide-react"
+import Image from "next/image"
+import { Info, Trophy,TrendingUp,TrendingDown } from "lucide-react"
 import { supabase } from "@/lib/supabase"
-import { BottomNav } from "@/components/bottom-nav"
 import { RankBadge } from "@/components/rank-badge"
+import { getRating, getRankFromRating } from "@/lib/rank"
+import { LeaderboardSkeleton } from "@/components/leaderboard-skeleton"
+import { UserAvatar } from "@/components/user-avatar"
 import { useRouter } from "next/navigation"
 
 type Tab = "league" | "global"
 
-function getRating(player: any) {
-  return player.rating ?? Math.min(900 + (player.xp ?? 0), 3800)
-}
-
-function getRankFromRating(rating: number) {
-  if (rating >= 3500) return { name: "Legend", icon: "♛", color: "text-pink-400", border: "border-pink-500/60", glow: "shadow-[0_0_35px_rgba(244,114,182,0.35)]", next: null, nextRating: null, floor: 3500 }
-  if (rating >= 3000) return { name: "Grandmaster", icon: "✦", color: "text-red-400", border: "border-red-500/60", glow: "shadow-[0_0_35px_rgba(248,113,113,0.3)]", next: "Legend", nextRating: 3500, floor: 3000 }
-  if (rating >= 2600) return { name: "Master", icon: "◆", color: "text-orange-400", border: "border-orange-500/60", glow: "shadow-[0_0_35px_rgba(251,146,60,0.28)]", next: "Grandmaster", nextRating: 3000, floor: 2600 }
-  if (rating >= 2200) return { name: "Diamond", icon: "◇", color: "text-cyan-400", border: "border-cyan-400/60", glow: "shadow-[0_0_35px_rgba(34,211,238,0.28)]", next: "Master", nextRating: 2600, floor: 2200 }
-  if (rating >= 1800) return { name: "Platinum", icon: "⬟", color: "text-purple-300", border: "border-purple-400/60", glow: "shadow-[0_0_35px_rgba(168,85,247,0.28)]", next: "Diamond", nextRating: 2200, floor: 1800 }
-  if (rating >= 1400) return { name: "Gold", icon: "✦", color: "text-yellow-400", border: "border-yellow-400/60", glow: "shadow-[0_0_35px_rgba(250,204,21,0.28)]", next: "Platinum", nextRating: 1800, floor: 1400 }
-  if (rating >= 1000) return { name: "Silver", icon: "◇", color: "text-zinc-200", border: "border-zinc-200/60", glow: "shadow-[0_0_35px_rgba(255,255,255,0.18)]", next: "Gold", nextRating: 1400, floor: 1000 }
-
-  return { name: "Bronze", icon: "⬢", color: "text-orange-700", border: "border-orange-700/60", glow: "shadow-[0_0_35px_rgba(194,65,12,0.25)]", next: "Silver", nextRating: 1000, floor: 0 }
-}
+const rankTiers = [
+  { name: "Bronze", range: "0 - 999 PR", img: "/ranks/bronze.png", color: "text-orange-700", border: "border-orange-700/50" },
+  { name: "Silver", range: "1000 - 1399 PR", img: "/ranks/silver.png", color: "text-zinc-300", border: "border-zinc-300/50" },
+  { name: "Gold", range: "1400 - 1799 PR", img: "/ranks/gold.png", color: "text-yellow-400", border: "border-yellow-400/50" },
+  { name: "Platinum", range: "1800 - 2199 PR", img: "/ranks/platinum.png", color: "text-purple-300", border: "border-purple-300/50" },
+  { name: "Diamond", range: "2200 - 2599 PR", img: "/ranks/diamond.png", color: "text-cyan-400", border: "border-cyan-400/50" },
+  { name: "Master", range: "2600 - 2999 PR", img: "/ranks/master.png", color: "text-red-400", border: "border-red-400/50" },
+  { name: "Grandmaster", range: "3000 - 3499 PR", img: "/ranks/grandmaster.png", color: "text-violet-300", border: "border-violet-300/50" },
+  { name: "Legend", range: "3500+ PR", img: "/ranks/legend.png", color: "text-pink-400", border: "border-pink-400/50" },
+]
 
 export default function LeaderboardPage() {
   const [players, setPlayers] = useState<any[]>([])
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [tab, setTab] = useState<Tab>("league")
   const [showInfo, setShowInfo] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [todayPrDelta, setTodayPrDelta] = useState(0)
   const router = useRouter()
 
   useEffect(() => {
@@ -54,6 +54,25 @@ export default function LeaderboardPage() {
       .order("xp", { ascending: false })
 
     if (data) setPlayers(data)
+
+    const { data: predictionsData } = await supabase
+      .from("predictions")
+      .select("rating_delta, resolved_at")
+      .eq("user_id", user.id)
+      .not("resolved_at", "is", null)
+
+    if (predictionsData) {
+      const todayStart = new Date()
+      todayStart.setHours(0, 0, 0, 0)
+
+      const delta = predictionsData
+        .filter((prediction) => new Date(prediction.resolved_at) >= todayStart)
+        .reduce((sum, prediction) => sum + (prediction.rating_delta ?? 0), 0)
+
+      setTodayPrDelta(delta)
+    }
+
+    setLoading(false)
   }
 
   const currentPlayer = players.find((player) => player.id === currentUserId)
@@ -80,9 +99,18 @@ export default function LeaderboardPage() {
         100
       : 100
 
+  if (loading) {
+    return <LeaderboardSkeleton />
+  }
+
   return (
   <div className="min-h-screen bg-black px-4 pb-24 pt-6 text-white">
-    <h1 className="bg-gradient-to-r from-purple-400 via-fuchsia-400 to-red-500 bg-clip-text text-3xl font-extrabold text-transparent">
+    <h1
+      className="inline-block bg-clip-text text-3xl font-extrabold text-transparent"
+      style={{
+        backgroundImage: "linear-gradient(to right, #c084fc, #dc2626 80%)",
+      }}
+    >
       CLASSEMENT
     </h1>
 
@@ -135,17 +163,38 @@ export default function LeaderboardPage() {
             </div>
           </div>
 
-          <div className="group relative overflow-hidden rounded-2xl border border-green-400/30 bg-white/5 p-4 shadow-[0_0_20px_rgba(74,222,128,0.12)] transition-all duration-300 hover:border-green-400/70 hover:shadow-[0_0_28px_rgba(74,222,128,0.28)]">
+          <div
+            className={`group relative overflow-hidden rounded-2xl border bg-white/5 p-4 shadow-[0_0_20px_rgba(74,222,128,0.12)] transition-all duration-300 ${
+              todayPrDelta > 0
+                ? "border-green-400/30 hover:border-green-400/70 hover:shadow-[0_0_28px_rgba(74,222,128,0.28)]"
+                : todayPrDelta < 0
+                ? "border-red-400/30 hover:border-red-400/70 hover:shadow-[0_0_28px_rgba(248,113,113,0.28)]"
+                : "border-white/10"
+            }`}
+          >
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
             <div className="relative z-10 flex flex-col items-center">
-              <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-xl border border-green-400/40 bg-green-500/10 text-green-300 shadow-[0_0_18px_rgba(74,222,128,0.25)]">
-                <TrendingUp className="h-5 w-5" />
+              <div
+                className={`mb-2 flex h-10 w-10 items-center justify-center rounded-xl border shadow-[0_0_18px_rgba(74,222,128,0.25)] ${
+                  todayPrDelta > 0
+                    ? "border-green-400/40 bg-green-500/10 text-green-300"
+                    : todayPrDelta < 0
+                    ? "border-red-400/40 bg-red-500/10 text-red-300"
+                    : "border-white/10 bg-white/5 text-zinc-400"
+                }`}
+              >
+                {todayPrDelta < 0 ? <TrendingDown className="h-5 w-5" /> : <TrendingUp className="h-5 w-5" />}
               </div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">
                 Tendance
               </p>
-              <p className="mt-1 text-xl font-black text-green-400">
-                +18 PR
+              <p
+                className={`mt-1 text-xl font-black ${
+                  todayPrDelta > 0 ? "text-green-400" : todayPrDelta < 0 ? "text-red-400" : "text-zinc-400"
+                }`}
+              >
+                {todayPrDelta > 0 ? "+" : ""}
+                {todayPrDelta} PR
               </p>
               <p className="text-[10px] font-bold text-zinc-500">
                 aujourd’hui
@@ -232,9 +281,7 @@ export default function LeaderboardPage() {
       {position === 1 ? "🥇" : position === 2 ? "🥈" : position === 3 ? "🥉" : position}
     </div>
 
-    <div className="flex h-13 w-13 items-center justify-center rounded-full bg-gradient-to-br from-purple-600 to-red-600 text-base font-black shadow-[0_0_18px_rgba(236,72,153,0.35)]">
-      {player.username?.slice(0, 2).toUpperCase() || "??"}
-    </div>
+    <UserAvatar username={player.username} avatarKey={player.avatar_key} size={52} />
 
     <div className="min-w-0 flex-1">
       <p className="truncate text-lg font-black leading-tight">
@@ -246,12 +293,12 @@ export default function LeaderboardPage() {
         )}
       </p>
 
-      <p className="mt-1 text-xs font-bold uppercase tracking-wider text-zinc-500">
-        LV {player.level ?? 1} ·{" "}
-        <span className={playerRank.color}>
-          {playerRank.icon} {playerRank.name}
-        </span>
-      </p>
+      <div className="mt-1 flex items-center gap-1.5">
+        <RankBadge rank={playerRank.name} size={20} intensity={0.4} />
+        <p className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+          LV {player.level ?? 1} · <span className={playerRank.color}>{playerRank.name}</span>
+        </p>
+      </div>
     </div>
 
     <div className="text-right">
@@ -279,19 +326,36 @@ export default function LeaderboardPage() {
           </h2>
 
           <p className="mt-2 text-sm text-zinc-400">
-            Ton rang dépend de ton PR. Gagner un pronostic augmente ton PR.
-            Perdre un pronostic le diminue. Les outsiders réussis rapportent plus de PR.
+            Ton rang dépend de ton PR, qui évolue selon tes résultats — plus tu montes, plus
+            c'est exigeant.
           </p>
 
-          <div className="mt-5 space-y-2 text-sm font-bold">
-            <p className="text-orange-700">⬢ Bronze · 0 - 999 PR</p>
-            <p className="text-zinc-300">◇ Silver · 1000 - 1399 PR</p>
-            <p className="text-yellow-400">✦ Gold · 1400 - 1799 PR</p>
-            <p className="text-purple-300">⬟ Platinum · 1800 - 2199 PR</p>
-            <p className="text-cyan-400">◇ Diamond · 2200 - 2599 PR</p>
-            <p className="text-orange-400">◆ Master · 2600 - 2999 PR</p>
-            <p className="text-red-400">✦ Grandmaster · 3000 - 3499 PR</p>
-            <p className="text-pink-400">♛ Legend · 3500+ PR</p>
+          <div className="mt-5 space-y-2">
+            {rankTiers.map((tier) => {
+              const isCurrent = tier.name === currentRank.name
+
+              return (
+                <div
+                  key={tier.name}
+                  className={`flex items-center gap-3 rounded-xl border px-3 py-2 transition-colors ${
+                    isCurrent ? `${tier.border} bg-white/[0.04]` : "border-white/5"
+                  }`}
+                >
+                  <Image src={tier.img} alt={tier.name} width={32} height={32} className="h-8 w-8 object-contain" />
+
+                  <p className={`flex-1 font-bold ${tier.color}`}>
+                    {tier.name}
+                    {isCurrent && (
+                      <span className="ml-2 rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-bold text-zinc-300">
+                        TOI
+                      </span>
+                    )}
+                  </p>
+
+                  <p className="text-xs font-bold text-zinc-500">{tier.range}</p>
+                </div>
+              )
+            })}
           </div>
 
           <button
@@ -304,7 +368,6 @@ export default function LeaderboardPage() {
       </div>
     )}
 
-    <BottomNav />
   </div>
 )
  }

@@ -2,9 +2,25 @@
 
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
-import { BottomNav } from "@/components/bottom-nav"
+import { XpBar } from "@/components/xp-bar"
+import { RewardPopup } from "@/components/reward-popup"
+import { HomeSkeleton } from "@/components/home-skeleton"
 import { useRouter } from "next/navigation"
-import { FileText, Gem } from "lucide-react"
+import { FileText, Gamepad2, Check } from "lucide-react"
+import { motion, AnimatePresence } from "framer-motion"
+import { getRatingMultiplier } from "@/lib/rank"
+
+const backdropVariants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { duration: 0.25 } },
+  exit: { opacity: 0, transition: { duration: 0.2 } },
+}
+
+const sheetVariants = {
+  hidden: { y: "100%", opacity: 0 },
+  visible: { y: 0, opacity: 1, transition: { type: "spring" as const, bounce: 0.25, duration: 0.45 } },
+  exit: { y: "100%", opacity: 0, transition: { duration: 0.28, ease: "easeIn" as const } },
+}
 
 export default function Home() {
   const [matches, setMatches] = useState<any[]>([])
@@ -16,6 +32,7 @@ export default function Home() {
   const [selectedOdds, setSelectedOdds] = useState(0)
   const [stake, setStake] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [seasonNumber, setSeasonNumber] = useState<number | null>(null)
   const router = useRouter()
   const [predictionSuccess, setPredictionSuccess] = useState<string | null>(null)
 
@@ -42,6 +59,16 @@ export default function Home() {
   .order("start_time", { ascending: true })
 
     if (matchesData) setMatches(matchesData)
+
+    const { data: seasonData } = await supabase
+      .from("seasons")
+      .select("number")
+      .eq("status", "active")
+      .order("number", { ascending: false })
+      .limit(1)
+      .single()
+
+    if (seasonData) setSeasonNumber(seasonData.number)
 
     if (user) {
       const { data: profileData } = await supabase
@@ -99,7 +126,7 @@ export default function Home() {
       return
     }
 
-    const maxPercent = Math.min(0.1 + Math.floor((profile.level - 1) / 5) * 0.02, 0.2)
+    const maxPercent = Math.min(0.15 + Math.floor((profile.level - 1) / 5) * 0.02, 0.25)
     const maxStake = Math.floor(profile.points * maxPercent)
 
     setSelectedMatch(match)
@@ -116,12 +143,15 @@ export default function Home() {
       return
     }
 
+    // Ces vérifications restent ici pour un retour instantané à l'utilisateur,
+    // mais c'est la fonction place_prediction (côté serveur) qui fait foi :
+    // impossible de les contourner depuis le navigateur.
     if (stake > profile.points) {
       alert("Pas assez de points")
       return
     }
 
-    const maxPercent = Math.min(0.1 + Math.floor((profile.level - 1) / 5) * 0.02, 0.2)
+    const maxPercent = Math.min(0.15 + Math.floor((profile.level - 1) / 5) * 0.02, 0.25)
     const maxStake = Math.floor(profile.points * maxPercent)
 
     if (stake > maxStake) {
@@ -138,25 +168,10 @@ export default function Home() {
       return
     }
 
-    const newPoints = profile.points - stake
-
-    const { error: profileError } = await supabase
-      .from("profiles")
-      .update({ points: newPoints })
-      .eq("id", user.id)
-
-    if (profileError) {
-      alert(profileError.message)
-      return
-    }
-
-    const { error } = await supabase.from("predictions").insert({
-      user_id: user.id,
-      match_id: selectedMatch.id,
-      selected_team: selectedTeam,
-      stake,
-      odds: selectedOdds,
-      status: "pending",
+    const { error } = await supabase.rpc("place_prediction", {
+      p_match_id: selectedMatch.id,
+      p_selected_team: selectedTeam,
+      p_stake: stake,
     })
 
     if (error) {
@@ -164,7 +179,6 @@ export default function Home() {
       return
     }
 
-    setProfile({ ...profile, points: newPoints })
     setSelectedMatch(null)
     setSelectedTeam("")
     setSelectedOdds(0)
@@ -181,23 +195,24 @@ setTimeout(() => {
   const maxStake = profile
   ? Math.floor(
       profile.points *
-      Math.min(0.1 + Math.floor((profile.level - 1) / 5) * 0.02, 0.2)
+      Math.min(0.15 + Math.floor((profile.level - 1) / 5) * 0.02, 0.25)
     )
   : 0
 
   if (loading) {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-black text-white">
-      Chargement...
-    </div>
-  )
+  return <HomeSkeleton />
 }
 
   return (
     <div className="min-h-screen bg-black pb-24 text-white">
       <div className="border-b border-zinc-800 px-4 py-4">
   <div className="flex items-center justify-between">
-    <h1 className="bg-gradient-to-r from-purple-400 to-red-500 bg-clip-text text-2xl font-extrabold text-transparent">
+    <h1
+      className="inline-block bg-clip-text text-2xl font-extrabold text-transparent"
+      style={{
+        backgroundImage: "linear-gradient(to right, #c084fc, #dc2626 80%)",
+      }}
+    >
       PRONOMING
     </h1>
 
@@ -213,7 +228,7 @@ setTimeout(() => {
       </button>
 
       <div className="flex items-center gap-1.5 rounded-lg border border-blue-400/40 bg-blue-500/15 px-2.5 py-1.5 text-sm font-bold text-blue-200 shadow-[0_0_14px_rgba(59,130,246,0.18)]">
-  <Gem className="h-3.5 w-3.5 text-cyan-300" />
+  <Gamepad2 className="h-3.5 w-3.5 text-cyan-300" />
   <span>{profile?.points ?? 0}</span>
 </div>
     </div>
@@ -221,16 +236,11 @@ setTimeout(() => {
 
   <div className="mt-4">
           <div className="mb-1 flex justify-between text-xs uppercase tracking-wider text-zinc-500">
-            <span>Season 1 · LV {profile?.level ?? 1}</span>
+            <span>Saison {seasonNumber ?? "-"} · LV {profile?.level ?? 1}</span>
             <span>{profile?.xp ?? 0} XP</span>
           </div>
 
-          <div className="h-2 overflow-hidden rounded-full bg-zinc-800">
-            <div
-              className="h-2 rounded-full bg-gradient-to-r from-purple-600 to-purple-300"
-              style={{ width: `${Math.min(xpProgress(), 100)}%` }}
-            />
-          </div>
+          <XpBar progress={xpProgress()} />
         </div>
       </div>
 
@@ -329,33 +339,37 @@ const formattedTime =
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
-                  <button
+                  <motion.button
                     onClick={() =>
                       openPrediction(match, match.team_a, match.odds_team_a)
                     }
-                    className="rounded-xl border border-white/10 bg-black/40 p-3 text-center transition-all duration-200 hover:border-purple-500 hover:bg-purple-900/20 hover:scale-[0.98]"
+                    whileTap={{ scale: 0.92 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 17 }}
+                    className="rounded-xl border border-white/10 bg-black/40 p-3 text-center transition-colors duration-200 hover:border-purple-500 hover:bg-purple-900/20"
                   >
                     <p className="bg-gradient-to-r from-purple-400 to-red-500 bg-clip-text text-xl font-extrabold text-transparent">
-  {match.odds_team_a}
+  {Number(match.odds_team_a).toFixed(2)}
 </p>
                     <p className="text-xs text-zinc-500">
                       {match.team_a}
                     </p>
-                  </button>
+                  </motion.button>
 
-                  <button
+                  <motion.button
                     onClick={() =>
                       openPrediction(match, match.team_b, match.odds_team_b)
                     }
-                    className="rounded-xl border border-white/10 bg-black/40 p-3 text-center transition-all duration-200 hover:border-red-500 hover:bg-red-900/20 hover:scale-[0.98]"
+                    whileTap={{ scale: 0.92 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 17 }}
+                    className="rounded-xl border border-white/10 bg-black/40 p-3 text-center transition-colors duration-200 hover:border-red-500 hover:bg-red-900/20"
                   >
                     <p className="bg-gradient-to-r from-purple-400 to-red-500 bg-clip-text text-xl font-extrabold text-transparent">
-  {match.odds_team_b}
+  {Number(match.odds_team_b).toFixed(2)}
 </p>
                     <p className="text-xs text-zinc-500">
                       {match.team_b}
                     </p>
-                  </button>
+                  </motion.button>
                 </div>
               </div>
             )
@@ -363,13 +377,22 @@ const formattedTime =
         </div>
       </main>
 
+      <AnimatePresence>
       {selectedMatch && (
-       <div
-  className="fixed inset-0 z-50 flex items-end bg-black/80 animate-backdropFade"
+       <motion.div
+  className="fixed inset-0 z-50 flex items-end bg-black/80"
+  variants={backdropVariants}
+  initial="hidden"
+  animate="visible"
+  exit="exit"
   onClick={() => setSelectedMatch(null)}
 >
-         <div
-className="w-full animate-sheetBounceUp rounded-t-3xl border-t-2 border-purple-600 bg-zinc-950 p-6"
+         <motion.div
+className="w-full rounded-t-3xl border-t-2 border-purple-600 bg-zinc-950 p-6"
+  variants={sheetVariants}
+  initial="hidden"
+  animate="visible"
+  exit="exit"
   onClick={(e) => e.stopPropagation()}
 >
             <div className="mx-auto mb-5 h-1 w-12 rounded-full bg-zinc-700" />
@@ -388,7 +411,7 @@ className="w-full animate-sheetBounceUp rounded-t-3xl border-t-2 border-purple-6
                 {selectedTeam}
               </p>
               <p className="text-yellow-400">
-                Odds {selectedOdds}
+                Odds {Number(selectedOdds).toFixed(2)}
               </p>
             </div>
 
@@ -418,46 +441,52 @@ className="w-full animate-sheetBounceUp rounded-t-3xl border-t-2 border-purple-6
 
               <div className="mt-2 flex justify-between text-sm">
                 <span className="text-zinc-500">Estimated XP</span>
-                <span className="text-purple-300">
+                <span className="text-purple-400">
                   +{Math.round((stake * selectedOdds) / 10)} XP if correct
+                </span>
+              </div>
+
+              <div className="mt-2 flex justify-between text-sm">
+                <span className="text-zinc-500">Estimated PR</span>
+                <span className="text-red-400">
+                  +{Math.round(
+                    Math.round(10 * selectedOdds * (maxStake > 0 ? stake / maxStake : 0)) *
+                      getRatingMultiplier(profile?.rating ?? 900)
+                  )}{" "}
+                  PR if correct
                 </span>
               </div>
             </div>
 
-            <button
+            <motion.button
               onClick={confirmPrediction}
+              whileTap={{ scale: 0.96 }}
+              transition={{ type: "spring", stiffness: 400, damping: 17 }}
               className="mt-5 w-full rounded-xl bg-gradient-to-r from-purple-600 to-red-600 p-4 font-extrabold"
             >
               CONFIRM PREDICTION →
-            </button>
+            </motion.button>
 
-            <button
+            <motion.button
           onClick={() => setSelectedMatch(null)}
+          whileTap={{ scale: 0.96 }}
+          transition={{ type: "spring", stiffness: 400, damping: 17 }}
           className="mt-3 w-full rounded-xl border border-zinc-700 p-3"
         >
           CANCEL
-        </button>
-      </div>
-    </div>
+        </motion.button>
+      </motion.div>
+    </motion.div>
   )}
+      </AnimatePresence>
 
-  {predictionSuccess && (
-  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-    <div className="rounded-3xl border border-purple-500 bg-zinc-950 px-8 py-6 text-center shadow-[0_0_40px_rgba(168,85,247,0.6)] animate-pulse">
-      <p className="text-4xl">✓</p>
+  <RewardPopup
+    visible={!!predictionSuccess}
+    icon={<Check className="h-8 w-8 text-white" strokeWidth={3} />}
+    title="Prédiction validée"
+    subtitle={predictionSuccess ?? undefined}
+  />
 
-      <p className="mt-3 text-xl font-extrabold text-white">
-        Prédiction validée
-      </p>
-
-      <p className="mt-1 text-sm font-bold text-purple-300">
-        {predictionSuccess}
-      </p>
-    </div>
-  </div>
-)}
-
-  <BottomNav />
 </div>
 )
 }
