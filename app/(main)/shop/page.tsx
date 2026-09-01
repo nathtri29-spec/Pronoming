@@ -5,49 +5,38 @@ import { supabase } from "@/lib/supabase"
 import { RewardPopup } from "@/components/reward-popup"
 import { ShopSkeleton } from "@/components/shop-skeleton"
 import { Gem, Gamepad2 } from "lucide-react"
+import { titleStyles } from "@/lib/title-styles"
 
 const titles = [
   {
     name: "Rookie Predictor",
-    icon: "⭐",
     price: 0,
     description: "Titre de départ",
-    color: "text-green-400",
   },
   {
     name: "Risk Taker",
-    icon: "⚡",
     price: 500,
     description: "Pour ceux qui osent les grosses cotes",
-    color: "text-purple-400",
   },
   {
     name: "Underdog Hunter",
-    icon: "🎯",
     price: 1000,
     description: "Spécialiste des outsiders",
-    color: "text-orange-400",
   },
   {
     name: "Rocket Analyst",
-    icon: "🚀",
     price: 2500,
     description: "Analyse, stratégie, précision",
-    color: "text-cyan-400",
   },
   {
     name: "Clutch Master",
-    icon: "🔥",
     price: 5000,
     description: "Toujours présent dans les moments chauds",
-    color: "text-yellow-400",
   },
   {
     name: "GOAT Predictor",
-    icon: "👑",
     price: 10000,
     description: "Le titre ultime",
-    color: "text-pink-400",
   },
 ]
 
@@ -178,48 +167,77 @@ setTimeout(() => {
           </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-2.5">
           {titles.map((title) => {
             const owned = profile.owned_titles?.includes(title.name)
             const equipped = profile.selected_title === title.name
 
+            const style = titleStyles[title.name]
+            const Icon = style.icon
+            const iconColor = style.text.startsWith("bg-") ? "text-pink-300" : style.text
+
             return (
               <div
                 key={title.name}
-                className="rounded-2xl border border-zinc-800 bg-black/40 p-3"
+                className={`rounded-2xl bg-gradient-to-r p-[1.5px] ${
+                  equipped ? "from-purple-400 to-red-500" : "from-purple-500/40 to-red-500/40"
+                }`}
               >
-                <h3 className={`text-sm font-extrabold ${title.color}`}>
-                  {title.icon} {title.name}
-                </h3>
+              <div className="flex items-center justify-between gap-4 rounded-[15px] bg-zinc-950 p-4">
+                <div className="flex min-w-0 flex-1 items-center gap-3">
+                  <div
+                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br ${style.gradient}`}
+                    style={{ boxShadow: `0 0 16px ${style.glow}` }}
+                  >
+                    <Icon className={`h-5 w-5 ${iconColor}`} strokeWidth={2.2} />
+                  </div>
 
-                <p className="mt-1 min-h-8 text-xs text-zinc-500">
-                  {title.description}
-                </p>
+                  <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <h3 className={`truncate text-base font-extrabold ${style.text}`}>
+                      {title.name}
+                    </h3>
 
-                <p className="mt-3 flex items-center gap-1 text-sm font-bold text-cyan-300">
-                  {title.price === 0 ? (
-                    "Gratuit"
-                  ) : (
-                    <>
-                      <Gamepad2 className="h-3.5 w-3.5" strokeWidth={2.2} />
-                      {title.price}
-                    </>
-                  )}
-                </p>
+                    {equipped && (
+                      <span className="shrink-0 rounded-full border border-white/20 px-2 py-0.5 text-[10px] font-bold text-zinc-300">
+                        ÉQUIPÉ
+                      </span>
+                    )}
+                  </div>
 
-                <button
-  onClick={() => {
-    if (!owned) buyTitle(title)
-  }}
-  disabled={owned}
-  className={`mt-3 w-full rounded-lg px-2 py-2 text-xs font-bold ${
-    owned
-      ? "border border-purple-500 text-purple-300"
-      : "bg-gradient-to-r from-purple-600 to-red-600 text-white"
-  }`}
->
-  {owned ? "Acheté" : "Acheter"}
-</button>
+                  <p className="mt-0.5 truncate text-xs text-zinc-500">
+                    {title.description}
+                  </p>
+                  </div>
+                </div>
+
+                <div className="flex shrink-0 flex-col items-end gap-2">
+                  <span className="flex items-center gap-1 text-xs font-bold text-zinc-400">
+                    {title.price === 0 ? (
+                      "Gratuit"
+                    ) : (
+                      <>
+                        <Gamepad2 className="h-3 w-3" strokeWidth={2.2} />
+                        {title.price}
+                      </>
+                    )}
+                  </span>
+
+                  <button
+                    onClick={() => buyTitle(title)}
+                    disabled={equipped}
+                    className={`rounded-lg px-4 py-1.5 text-xs font-bold ${
+                      equipped
+                        ? "border border-white/15 text-zinc-500"
+                        : owned
+                        ? "border border-white/25 text-white"
+                        : "bg-gradient-to-r from-purple-600 to-red-600 text-white"
+                    }`}
+                  >
+                    {equipped ? "Équipé" : owned ? "Équiper" : "Acheter"}
+                  </button>
+                </div>
+              </div>
               </div>
             )
           })}

@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation"
 import { FileText, Gamepad2, Check } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { getRatingMultiplier } from "@/lib/rank"
+import { useScrollLock } from "@/lib/use-scroll-lock"
 
 const backdropVariants = {
   hidden: { opacity: 0 },
@@ -35,6 +36,7 @@ export default function Home() {
   const [seasonNumber, setSeasonNumber] = useState<number | null>(null)
   const router = useRouter()
   const [predictionSuccess, setPredictionSuccess] = useState<string | null>(null)
+  const sheetPanelRef = useScrollLock(!!selectedMatch)
 
   useEffect(() => {
     loadData()
@@ -380,7 +382,7 @@ const formattedTime =
       <AnimatePresence>
       {selectedMatch && (
        <motion.div
-  className="fixed inset-0 z-50 flex items-end bg-black/80"
+  className="fixed inset-0 z-[60] flex items-end bg-black/80"
   variants={backdropVariants}
   initial="hidden"
   animate="visible"
@@ -388,7 +390,8 @@ const formattedTime =
   onClick={() => setSelectedMatch(null)}
 >
          <motion.div
-className="w-full rounded-t-3xl border-t-2 border-purple-600 bg-zinc-950 p-6"
+ref={sheetPanelRef}
+className="max-h-[85vh] w-full overflow-y-auto overscroll-contain rounded-t-3xl border-t-2 border-purple-600 bg-zinc-950 p-6"
   variants={sheetVariants}
   initial="hidden"
   animate="visible"
@@ -398,7 +401,7 @@ className="w-full rounded-t-3xl border-t-2 border-purple-600 bg-zinc-950 p-6"
             <div className="mx-auto mb-5 h-1 w-12 rounded-full bg-zinc-700" />
 
             <h2 className="text-2xl font-bold">
-              PLACE PREDICTION
+              PLACER UN PRONOSTIC
             </h2>
 
             <p className="mb-5 text-sm text-zinc-500">
@@ -406,17 +409,17 @@ className="w-full rounded-t-3xl border-t-2 border-purple-600 bg-zinc-950 p-6"
             </p>
 
             <div className="mb-4 rounded-xl border border-purple-500/30 bg-purple-900/10 p-4">
-              <p className="text-sm text-zinc-400">Selected pick</p>
+              <p className="text-sm text-zinc-400">Sélection</p>
               <p className="text-xl font-bold text-purple-300">
                 {selectedTeam}
               </p>
               <p className="text-yellow-400">
-                Odds {Number(selectedOdds).toFixed(2)}
+                Cote {Number(selectedOdds).toFixed(2)}
               </p>
             </div>
 
             <label className="text-xs font-bold uppercase tracking-wider text-zinc-500">
-              Stake
+              Mise
             </label>
 
             <input
@@ -433,27 +436,27 @@ className="w-full rounded-t-3xl border-t-2 border-purple-600 bg-zinc-950 p-6"
 
             <div className="mt-4 rounded-xl border border-zinc-800 bg-zinc-900 p-4">
               <div className="flex justify-between">
-                <span className="text-zinc-500">Potential win</span>
+                <span className="text-zinc-500">Gain potentiel</span>
                 <span className="text-xl font-bold text-yellow-400">
                   {Math.round(stake * selectedOdds)} pts
                 </span>
               </div>
 
               <div className="mt-2 flex justify-between text-sm">
-                <span className="text-zinc-500">Estimated XP</span>
+                <span className="text-zinc-500">XP estimé</span>
                 <span className="text-purple-400">
-                  +{Math.round((stake * selectedOdds) / 10)} XP if correct
+                  +{Math.round((stake * selectedOdds) / 10)} XP si correct
                 </span>
               </div>
 
               <div className="mt-2 flex justify-between text-sm">
-                <span className="text-zinc-500">Estimated PR</span>
+                <span className="text-zinc-500">PR estimé</span>
                 <span className="text-red-400">
                   +{Math.round(
                     Math.round(10 * selectedOdds * (maxStake > 0 ? stake / maxStake : 0)) *
                       getRatingMultiplier(profile?.rating ?? 900)
                   )}{" "}
-                  PR if correct
+                  PR si correct
                 </span>
               </div>
             </div>
@@ -464,7 +467,7 @@ className="w-full rounded-t-3xl border-t-2 border-purple-600 bg-zinc-950 p-6"
               transition={{ type: "spring", stiffness: 400, damping: 17 }}
               className="mt-5 w-full rounded-xl bg-gradient-to-r from-purple-600 to-red-600 p-4 font-extrabold"
             >
-              CONFIRM PREDICTION →
+              CONFIRMER LE PRONOSTIC →
             </motion.button>
 
             <motion.button
@@ -473,7 +476,7 @@ className="w-full rounded-t-3xl border-t-2 border-purple-600 bg-zinc-950 p-6"
           transition={{ type: "spring", stiffness: 400, damping: 17 }}
           className="mt-3 w-full rounded-xl border border-zinc-700 p-3"
         >
-          CANCEL
+          ANNULER
         </motion.button>
       </motion.div>
     </motion.div>

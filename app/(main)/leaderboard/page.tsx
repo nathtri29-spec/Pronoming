@@ -9,6 +9,7 @@ import { getRating, getRankFromRating } from "@/lib/rank"
 import { LeaderboardSkeleton } from "@/components/leaderboard-skeleton"
 import { UserAvatar } from "@/components/user-avatar"
 import { useRouter } from "next/navigation"
+import { useScrollLock } from "@/lib/use-scroll-lock"
 
 type Tab = "league" | "global"
 
@@ -31,6 +32,8 @@ export default function LeaderboardPage() {
   const [loading, setLoading] = useState(true)
   const [todayPrDelta, setTodayPrDelta] = useState(0)
   const router = useRouter()
+  const infoPanelRef = useScrollLock(showInfo)
+
 
   useEffect(() => {
     fetchPlayers()
@@ -314,12 +317,13 @@ export default function LeaderboardPage() {
 
     {showInfo && (
       <div
-        className="fixed inset-0 z-50 flex items-end bg-black/80"
+        className="fixed inset-0 z-[60] flex items-end bg-black/80"
         onClick={() => setShowInfo(false)}
       >
         <div
+          ref={infoPanelRef}
           onClick={(e) => e.stopPropagation()}
-          className="w-full rounded-t-3xl border-t border-purple-500 bg-zinc-950 p-6"
+          className="max-h-[85vh] w-full overflow-y-auto overscroll-contain rounded-t-3xl border-t border-purple-500 bg-zinc-950 p-6"
         >
           <h2 className="text-xl font-extrabold">
             Comment fonctionnent les rangs ?
