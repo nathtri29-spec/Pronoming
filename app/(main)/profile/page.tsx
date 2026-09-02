@@ -5,68 +5,23 @@ import { supabase } from "@/lib/supabase"
 import { RankBadge } from "@/components/rank-badge"
 import { getRating, getRankFromRating } from "@/lib/rank"
 import { XpBar } from "@/components/xp-bar"
-import { RewardPopup } from "@/components/reward-popup"
 import {
   Trophy,
-  Target,
-  ShoppingBag,
-  Flame,
-  Zap,
-  TrendingUp,
-  Lock,
-  Check,
   Clock,
   Gamepad2,
   Percent,
   TrendingDown,
   Settings,
   User,
-  Image as ImageIcon,
+  Sparkles,
   Award,
   LogOut,
 } from "lucide-react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { UserAvatar } from "@/components/user-avatar"
-import { avatarEmblems, avatarKeys } from "@/lib/avatars"
 import { ProfileSkeleton } from "@/components/profile-skeleton"
 import { getTitleStyle } from "@/lib/title-styles"
-import { useScrollLock } from "@/lib/use-scroll-lock"
-
-const achievementStyles: Record<
-  string,
-  { icon: typeof Trophy; gradient: string; glow: string }
-> = {
-  first_prediction: {
-    icon: Target,
-    gradient: "from-violet-500 to-fuchsia-600",
-    glow: "rgba(168,85,247,0.35)",
-  },
-  first_purchase: {
-    icon: ShoppingBag,
-    gradient: "from-cyan-400 to-blue-600",
-    glow: "rgba(34,211,238,0.35)",
-  },
-  win_streak_3: {
-    icon: Flame,
-    gradient: "from-orange-400 to-red-600",
-    glow: "rgba(251,146,60,0.35)",
-  },
-  big_odds_win: {
-    icon: Zap,
-    gradient: "from-yellow-400 to-amber-600",
-    glow: "rgba(250,204,21,0.35)",
-  },
-  total_wins_10: {
-    icon: Trophy,
-    gradient: "from-emerald-400 to-teal-600",
-    glow: "rgba(52,211,153,0.35)",
-  },
-  level_10: {
-    icon: TrendingUp,
-    gradient: "from-pink-500 to-rose-600",
-    glow: "rgba(236,72,153,0.35)",
-  },
-}
 
 const seasonRankColors: Record<string, string> = {
   Bronze: "text-orange-700",
@@ -80,22 +35,15 @@ const seasonRankColors: Record<string, string> = {
 }
 
 export default function ProfilePage() {
+  const router = useRouter()
   const [profile, setProfile] = useState<any>(null)
   const [predictions, setPredictions] = useState<any[]>([])
   const [stats, setStats] = useState({ wins: 0, losses: 0 })
   const [editingUsername, setEditingUsername] = useState(false)
   const [newUsername, setNewUsername] = useState("")
   const [menuOpen, setMenuOpen] = useState(false)
-  const [showAvatarPicker, setShowAvatarPicker] = useState(false)
-  const [showTitlePicker, setShowTitlePicker] = useState(false)
   const [achievements, setAchievements] = useState<any[]>([])
   const [profileAchievements, setProfileAchievements] = useState<any[]>([])
-  const [showAchievements, setShowAchievements] = useState(false)
-  const [claimingKey, setClaimingKey] = useState<string | null>(null)
-  const [claimedAchievement, setClaimedAchievement] = useState<{ name: string; rewardText: string } | null>(null)
-  const titlePickerRef = useScrollLock(showTitlePicker)
-  const avatarPickerRef = useScrollLock(showAvatarPicker)
-  const achievementsRef = useScrollLock(showAchievements)
   const [seasonHistory, setSeasonHistory] = useState<any[]>([])
 
   useEffect(() => {
@@ -160,47 +108,6 @@ export default function ProfilePage() {
     return "unclaimed"
   }
 
-  async function claimAchievement(key: string) {
-    setClaimingKey(key)
-
-    const { data, error } = await supabase.rpc("claim_achievement", {
-      p_key: key,
-    })
-
-    setClaimingKey(null)
-
-    if (error) {
-      alert(error.message)
-      return
-    }
-
-    setProfile(data)
-    setProfileAchievements((prev) =>
-      prev.map((pa) =>
-        pa.achievement_key === key
-          ? { ...pa, claimed_at: new Date().toISOString() }
-          : pa
-      )
-    )
-
-    const achievement = achievements.find((a) => a.key === key)
-
-    if (achievement) {
-      const rewardText =
-        achievement.reward_type === "points"
-          ? `+${achievement.reward_value} points`
-          : achievement.reward_type === "xp"
-          ? `+${achievement.reward_value} XP`
-          : `Titre "${achievement.reward_value}"`
-
-      setClaimedAchievement({ name: achievement.name, rewardText })
-
-      setTimeout(() => {
-        setClaimedAchievement(null)
-      }, 3000)
-    }
-  }
-
   if (!profile) {
     return <ProfileSkeleton />
   }
@@ -210,9 +117,6 @@ export default function ProfilePage() {
   const rank = getRankFromRating(getRating(profile))
   const currentTitleStyle = getTitleStyle(profile.selected_title)
   const TitleIcon = currentTitleStyle.icon
- const ownedTitles = profile.owned_titles
-  ? JSON.parse(profile.owned_titles)
-  : ["Rookie Predictor"]
   const currentLevelXp = ((profile.level - 1) * profile.level * 100) / 2
   const nextLevelXp = (profile.level * (profile.level + 1) * 100) / 2
   const progressXp = profile.xp - currentLevelXp
@@ -259,50 +163,6 @@ export default function ProfilePage() {
   setEditingUsername(false)
 }
 
-async function updateTitle(title: string) {
-  if (!profile) return
-
-  const { error } = await supabase
-    .from("profiles")
-    .update({
-      selected_title: title,
-    })
-    .eq("id", profile.id)
-
-  if (error) {
-    alert(error.message)
-    return
-  }
-
-  setProfile({
-    ...profile,
-    selected_title: title,
-  })
-
-  setShowTitlePicker(false)
-}
-
-async function updateAvatar(key: string) {
-  if (!profile) return
-
-  const { error } = await supabase
-    .from("profiles")
-    .update({ avatar_key: key })
-    .eq("id", profile.id)
-
-  if (error) {
-    alert(error.message)
-    return
-  }
-
-  setProfile({
-    ...profile,
-    avatar_key: key,
-  })
-
-  setShowAvatarPicker(false)
-}
-
 async function logout() {
   await supabase.auth.signOut()
   window.location.replace("/login")
@@ -325,6 +185,19 @@ async function logout() {
       Ton espace personnel
     </p>
   </div>
+
+  <div className="flex items-center gap-1.5">
+    <span className="rounded-full border border-red-500/40 bg-red-500/10 px-2.5 py-1 text-[11px] font-bold text-red-300">
+      Mise max {maxStakePercent}%
+    </span>
+
+    <button
+      onClick={() => router.push("/profile/succes")}
+      className="flex items-center gap-1 rounded-full border border-yellow-500/40 bg-yellow-500/10 px-2.5 py-1 text-[11px] font-bold text-yellow-300"
+    >
+      <Trophy className="h-3 w-3" strokeWidth={2.5} />
+      {claimedCount}/{achievements.length}
+    </button>
 
   <div className="relative">
   <button
@@ -360,32 +233,15 @@ async function logout() {
         </button>
 
         <button
-          onClick={() => {
-            setShowAvatarPicker(true)
-            setMenuOpen(false)
-          }}
+          onClick={() => router.push("/profile/personnalisation")}
           className="flex w-full items-center gap-2 border-b border-zinc-800 px-3 py-2 text-left text-sm text-white"
         >
-          <ImageIcon className="h-4 w-4 text-zinc-400" strokeWidth={2} />
-          Avatar
+          <Sparkles className="h-4 w-4 text-zinc-400" strokeWidth={2} />
+          Personnalisation
         </button>
 
         <button
-  onClick={() => {
-    setShowTitlePicker(true)
-    setMenuOpen(false)
-  }}
-  className="flex w-full items-center gap-2 border-b border-zinc-800 px-3 py-2 text-left text-sm text-white"
->
-  <Award className="h-4 w-4 text-zinc-400" strokeWidth={2} />
-  Titre
-</button>
-
-        <button
-  onClick={() => {
-    setShowAchievements(true)
-    setMenuOpen(false)
-  }}
+  onClick={() => router.push("/profile/succes")}
   className="relative flex w-full items-center gap-2 border-b border-zinc-800 px-3 py-2 text-left text-sm text-white"
 >
   <Trophy className="h-4 w-4 text-zinc-400" strokeWidth={2} />
@@ -409,10 +265,11 @@ async function logout() {
   )}
 </div>
 </div>
+</div>
 
       <div className="p-6 text-center">
         <button
-          onClick={() => setShowAvatarPicker(true)}
+          onClick={() => router.push("/profile/personnalisation")}
           className="mx-auto mb-4 block"
         >
           <UserAvatar username={profile.username} avatarKey={profile.avatar_key} size={96} />
@@ -435,10 +292,14 @@ async function logout() {
     </button>
   </div>
 ) : (
-  <div>
+  <div className="flex items-center justify-center gap-2">
     <h2 className="text-3xl font-bold tracking-wide">
       {profile.username}
     </h2>
+
+    <span className="rounded-full border border-purple-500/40 bg-purple-500/10 px-2.5 py-1 text-xs font-bold text-purple-300">
+      LV {profile.level}
+    </span>
   </div>
 )}
 
@@ -462,24 +323,6 @@ async function logout() {
   </p>
 
   <div className="pointer-events-none absolute inset-0 animate-[shine_3s_linear_infinite] bg-gradient-to-r from-transparent via-white/15 to-transparent" />
-</div>
-
-        <div className="mt-3 flex justify-center gap-2">
-  <span className="rounded-full border border-purple-500/40 bg-purple-500/10 px-3 py-1 text-xs font-bold text-purple-300">
-    LV {profile.level}
-  </span>
-
-  <span className="rounded-full border border-red-500/40 bg-red-500/10 px-3 py-1 text-xs font-bold text-red-300">
-    Mise max {maxStakePercent}%
-  </span>
-
-  <button
-    onClick={() => setShowAchievements(true)}
-    className="flex items-center gap-1 rounded-full border border-yellow-500/40 bg-yellow-500/10 px-3 py-1 text-xs font-bold text-yellow-300"
-  >
-    <Trophy className="h-3 w-3" strokeWidth={2.5} />
-    {claimedCount}/{achievements.length}
-  </button>
 </div>
 
         <div className="mt-6">
@@ -641,173 +484,6 @@ async function logout() {
           </div>
         )}
       </div>
-      {showTitlePicker && (
-  <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-6">
-    <div ref={titlePickerRef} className="max-h-[80vh] w-full max-w-sm overflow-y-auto overscroll-contain rounded-2xl border border-zinc-800 bg-zinc-950 p-5">
-      <h2 className="mb-4 text-xl font-bold">Choisir un titre</h2>
-
-      <div className="space-y-2">
-  {ownedTitles.map((title: string) => {
-    const style = getTitleStyle(title)
-    const Icon = style.icon
-    const isEquipped = profile.selected_title === title
-    const textClass = style.text.startsWith("bg-") ? "text-pink-300" : style.text
-
-    return (
-      <button
-        key={title}
-        onClick={() => updateTitle(title)}
-        className={`flex w-full items-center gap-2 rounded-xl border bg-gradient-to-r p-3 text-left font-bold ${style.gradient} ${
-          isEquipped ? "border-purple-500 ring-1 ring-purple-500" : "border-zinc-800"
-        }`}
-      >
-        <Icon className={`h-4 w-4 shrink-0 ${textClass}`} strokeWidth={2.2} />
-        <span className={style.text.startsWith("bg-") ? style.text : textClass}>
-          {title}
-        </span>
-      </button>
-    )
-  })}
-</div>
-
-      <button
-        onClick={() => setShowTitlePicker(false)}
-        className="mt-4 w-full rounded-xl border border-zinc-700 p-3 font-bold text-zinc-300"
-      >
-        Fermer
-      </button>
-    </div>
-  </div>
-)}
-
-{showAvatarPicker && (
-  <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-6">
-    <div ref={avatarPickerRef} className="max-h-[80vh] w-full max-w-sm overflow-y-auto overscroll-contain rounded-2xl border border-zinc-800 bg-zinc-950 p-5">
-      <h2 className="mb-4 text-xl font-bold">Choisir un avatar</h2>
-
-      <div className="grid grid-cols-4 gap-3">
-        {avatarKeys.map((key) => {
-          const isSelected = profile.avatar_key === key
-
-          return (
-            <button
-              key={key}
-              onClick={() => updateAvatar(key)}
-              className={`flex items-center justify-center rounded-2xl p-2 transition-all ${
-                isSelected
-                  ? "bg-purple-600/20 ring-2 ring-purple-500"
-                  : "hover:bg-white/5"
-              }`}
-            >
-              <UserAvatar avatarKey={key} size={56} />
-            </button>
-          )
-        })}
-      </div>
-
-      <button
-        onClick={() => setShowAvatarPicker(false)}
-        className="mt-5 w-full rounded-xl border border-zinc-700 p-3 font-bold text-zinc-300"
-      >
-        Fermer
-      </button>
-    </div>
-  </div>
-)}
-
-{showAchievements && (
-  <div
-    className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-6"
-    onClick={() => setShowAchievements(false)}
-  >
-    <div
-      ref={achievementsRef}
-      className="max-h-[80vh] w-full max-w-sm overflow-y-auto overscroll-contain rounded-2xl border border-zinc-800 bg-zinc-950 p-5"
-      onClick={(e) => e.stopPropagation()}
-    >
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-xl font-bold">Succès</h2>
-        <span className="text-xs font-bold text-zinc-500">
-          {claimedCount}/{achievements.length}
-        </span>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        {achievements.map((achievement) => {
-          const status = getAchievementStatus(achievement.key)
-          const isLocked = status === "locked"
-          const isUnclaimed = status === "unclaimed"
-          const isClaimed = status === "claimed"
-          const style = achievementStyles[achievement.key]
-          const Icon = style?.icon ?? Trophy
-
-          return (
-            <button
-              key={achievement.key}
-              onClick={() => isUnclaimed && claimAchievement(achievement.key)}
-              disabled={!isUnclaimed || claimingKey === achievement.key}
-              className={`relative flex flex-col items-center gap-2 rounded-2xl border p-4 text-center transition-all ${
-                isUnclaimed
-                  ? "border-yellow-500/50 bg-yellow-500/5 shadow-[0_0_20px_rgba(234,179,8,0.15)]"
-                  : isClaimed
-                  ? "border-zinc-800 bg-zinc-900/40"
-                  : "border-zinc-900 bg-black/30"
-              }`}
-            >
-              <div
-                className={`relative flex h-14 w-14 items-center justify-center rounded-full ${
-                  isLocked ? "bg-zinc-800" : `bg-gradient-to-br ${style.gradient}`
-                }`}
-                style={!isLocked ? { boxShadow: `0 0 18px ${style.glow}` } : undefined}
-              >
-                {isLocked ? (
-                  <Lock className="h-5 w-5 text-zinc-600" strokeWidth={2.5} />
-                ) : (
-                  <Icon className="h-6 w-6 text-white" strokeWidth={2.5} />
-                )}
-
-                {isClaimed && (
-                  <div className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full border-2 border-zinc-950 bg-green-500">
-                    <Check className="h-3 w-3 text-white" strokeWidth={3} />
-                  </div>
-                )}
-              </div>
-
-              <p
-                className={`text-[11px] font-semibold leading-tight ${
-                  isLocked ? "text-zinc-600" : "text-zinc-200"
-                }`}
-              >
-                {achievement.description}
-              </p>
-
-              {isUnclaimed && (
-                <span className="rounded-full bg-gradient-to-r from-purple-600 to-red-600 px-3 py-1 text-[10px] font-bold text-white">
-                  {claimingKey === achievement.key ? "..." : "Récupérer"}
-                </span>
-              )}
-            </button>
-          )
-        })}
-      </div>
-
-      <button
-        onClick={() => setShowAchievements(false)}
-        className="mt-4 w-full rounded-xl border border-zinc-700 p-3 font-bold text-zinc-300"
-      >
-        Fermer
-      </button>
-    </div>
-  </div>
-)}
-
-<RewardPopup
-  visible={!!claimedAchievement}
-  icon={<Trophy className="h-8 w-8 text-white" strokeWidth={2.5} />}
-  title={claimedAchievement?.name ?? ""}
-  subtitle={claimedAchievement?.rewardText}
-/>
-
     </div>
   )
 }

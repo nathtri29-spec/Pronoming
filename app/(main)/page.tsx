@@ -6,10 +6,11 @@ import { XpBar } from "@/components/xp-bar"
 import { RewardPopup } from "@/components/reward-popup"
 import { HomeSkeleton } from "@/components/home-skeleton"
 import { useRouter } from "next/navigation"
-import { FileText, Gamepad2, Check } from "lucide-react"
+import { FileText, Gamepad2, Check, Flame } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { getRatingMultiplier } from "@/lib/rank"
 import { useScrollLock } from "@/lib/use-scroll-lock"
+import { boostDefs, type BoostKey } from "@/lib/boost-styles"
 
 const backdropVariants = {
   hidden: { opacity: 0 },
@@ -36,7 +37,27 @@ export default function Home() {
   const [seasonNumber, setSeasonNumber] = useState<number | null>(null)
   const router = useRouter()
   const [predictionSuccess, setPredictionSuccess] = useState<string | null>(null)
+  const [activeBoosts, setActiveBoosts] = useState<any[]>([])
+  const [selectedBoosts, setSelectedBoosts] = useState<Set<BoostKey>>(new Set())
   const sheetPanelRef = useScrollLock(!!selectedMatch)
+
+  function toggleBoost(type: BoostKey) {
+    setSelectedBoosts((prev) => {
+      const next = new Set(prev)
+      if (next.has(type)) {
+        next.delete(type)
+      } else {
+        next.add(type)
+      }
+      return next
+    })
+  }
+
+  function prLossPreview() {
+    const rating = profile?.rating ?? 900
+    const base = rating >= 1800 ? 20 : rating >= 1400 ? 5 : 0
+    return selectedBoosts.has("pr_gamble") ? base * 2 : base
+  }
 
   useEffect(() => {
     loadData()
@@ -106,6 +127,14 @@ export default function Home() {
         .eq("user_id", user.id)
 
       if (predictionsData) setPredictions(predictionsData)
+
+      const { data: boostsData } = await supabase
+        .from("profile_boosts")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("status", "pending")
+
+      setActiveBoosts(boostsData || [])
         setLoading(false)
     }
   }
@@ -135,6 +164,7 @@ export default function Home() {
     setSelectedTeam(team)
     setSelectedOdds(odds)
     setStake(Math.max(10, Math.floor(maxStake / 2)))
+    setSelectedBoosts(new Set())
   }
 
   async function confirmPrediction() {
@@ -174,6 +204,10 @@ export default function Home() {
       p_match_id: selectedMatch.id,
       p_selected_team: selectedTeam,
       p_stake: stake,
+      p_use_insurance: selectedBoosts.has("insurance"),
+      p_use_gain_boost: selectedBoosts.has("gain_boost"),
+      p_use_pr_gamble: selectedBoosts.has("pr_gamble"),
+      p_use_xp_boost: selectedBoosts.has("xp_boost"),
     })
 
     if (error) {
@@ -185,6 +219,7 @@ export default function Home() {
     setSelectedTeam("")
     setSelectedOdds(0)
     setStake(0)
+    setSelectedBoosts(new Set())
 
     setPredictionSuccess(selectedTeam)
 
@@ -248,8 +283,9 @@ setTimeout(() => {
 
       <main className="px-4 py-5">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-bold">
-            🔥 LIVE & UPCOMING
+          <h2 className="flex items-center gap-2 text-xl font-bold">
+            <Flame className="h-5 w-5 text-orange-400" strokeWidth={2.5} />
+            EN DIRECT & À VENIR
           </h2>
 
           <span className="text-xs font-bold text-purple-400">
@@ -326,7 +362,7 @@ const formattedTime =
 
                     {alreadyPredicted ? (
                       <span className="rounded-full border border-purple-500/40 bg-purple-600/20 px-2 py-1 text-[10px] font-bold text-purple-300">
-                        PREDICTED
+                        PRONOSTIQUÉ
                       </span>
                     ) : (
                       <p className="text-xs text-zinc-600">BO5</p>
@@ -343,11 +379,13 @@ const formattedTime =
                 <div className="grid grid-cols-2 gap-3">
                   <motion.button
                     onClick={() =>
+                      !alreadyPredicted &&
                       openPrediction(match, match.team_a, match.odds_team_a)
                     }
-                    whileTap={{ scale: 0.92 }}
+                    disabled={alreadyPredicted}
+                    whileTap={alreadyPredicted ? undefined : { scale: 0.92 }}
                     transition={{ type: "spring", stiffness: 400, damping: 17 }}
-                    className="rounded-xl border border-white/10 bg-black/40 p-3 text-center transition-colors duration-200 hover:border-purple-500 hover:bg-purple-900/20"
+                    className="rounded-xl border border-white/10 bg-black/40 p-3 text-center transition-colors duration-200 hover:border-purple-500 hover:bg-purple-900/20 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-white/10 disabled:hover:bg-black/40"
                   >
                     <p className="bg-gradient-to-r from-purple-400 to-red-500 bg-clip-text text-xl font-extrabold text-transparent">
   {Number(match.odds_team_a).toFixed(2)}
@@ -359,11 +397,13 @@ const formattedTime =
 
                   <motion.button
                     onClick={() =>
+                      !alreadyPredicted &&
                       openPrediction(match, match.team_b, match.odds_team_b)
                     }
-                    whileTap={{ scale: 0.92 }}
+                    disabled={alreadyPredicted}
+                    whileTap={alreadyPredicted ? undefined : { scale: 0.92 }}
                     transition={{ type: "spring", stiffness: 400, damping: 17 }}
-                    className="rounded-xl border border-white/10 bg-black/40 p-3 text-center transition-colors duration-200 hover:border-red-500 hover:bg-red-900/20"
+                    className="rounded-xl border border-white/10 bg-black/40 p-3 text-center transition-colors duration-200 hover:border-red-500 hover:bg-red-900/20 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-white/10 disabled:hover:bg-black/40"
                   >
                     <p className="bg-gradient-to-r from-purple-400 to-red-500 bg-clip-text text-xl font-extrabold text-transparent">
   {Number(match.odds_team_b).toFixed(2)}
@@ -434,31 +474,85 @@ className="max-h-[85vh] w-full overflow-y-auto overscroll-contain rounded-t-3xl 
   Mise maximale : {maxStake} points
 </p>
 
+            {activeBoosts.length > 0 && (
+              <div className="mt-3">
+                <p className="mb-1.5 text-xs font-bold uppercase tracking-wider text-zinc-500">
+                  Utiliser un boost sur ce prono ?
+                </p>
+
+                <div className="flex flex-wrap gap-1.5">
+                  {activeBoosts.map((boost) => {
+                    const key = boost.boost_type as BoostKey
+                    const def = boostDefs[key]
+                    if (!def) return null
+                    const Icon = def.icon
+                    const selected = selectedBoosts.has(key)
+
+                    return (
+                      <button
+                        key={boost.id}
+                        type="button"
+                        onClick={() => toggleBoost(key)}
+                        className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[10px] font-bold transition-colors ${
+                          selected
+                            ? "border-purple-400 bg-purple-500/20 text-purple-200"
+                            : "border-white/15 bg-white/5 text-zinc-400"
+                        }`}
+                      >
+                        <Icon className="h-3 w-3" strokeWidth={2.5} />
+                        {def.label}
+                        {selected && <Check className="h-3 w-3" strokeWidth={3} />}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
             <div className="mt-4 rounded-xl border border-zinc-800 bg-zinc-900 p-4">
               <div className="flex justify-between">
                 <span className="text-zinc-500">Gain potentiel</span>
                 <span className="text-xl font-bold text-yellow-400">
-                  {Math.round(stake * selectedOdds)} pts
+                  {Math.round(stake * selectedOdds * (selectedBoosts.has("gain_boost") ? 1.2 : 1))} pts
                 </span>
               </div>
 
               <div className="mt-2 flex justify-between text-sm">
                 <span className="text-zinc-500">XP estimé</span>
                 <span className="text-purple-400">
-                  +{Math.round((stake * selectedOdds) / 10)} XP si correct
+                  +{Math.round((stake * selectedOdds) / 10 * (selectedBoosts.has("xp_boost") ? 1.3 : 1))} XP si correct
                 </span>
               </div>
+
+              {selectedBoosts.has("insurance") && (
+                <div className="mt-2 flex justify-between text-sm">
+                  <span className="text-zinc-500">Si perdu</span>
+                  <span className="text-emerald-400">
+                    +{Math.round(stake * 0.5)} pts remboursés (assurance)
+                  </span>
+                </div>
+              )}
 
               <div className="mt-2 flex justify-between text-sm">
                 <span className="text-zinc-500">PR estimé</span>
                 <span className="text-red-400">
                   +{Math.round(
                     Math.round(10 * selectedOdds * (maxStake > 0 ? stake / maxStake : 0)) *
-                      getRatingMultiplier(profile?.rating ?? 900)
+                      getRatingMultiplier(profile?.rating ?? 900) *
+                      (selectedBoosts.has("pr_gamble") ? 2 : 1)
                   )}{" "}
                   PR si correct
                 </span>
               </div>
+
+              {selectedBoosts.has("pr_gamble") && prLossPreview() > 0 && (
+                <div className="mt-2 flex justify-between text-sm">
+                  <span className="text-zinc-500">PR risqué si perdu</span>
+                  <span className="font-bold text-red-500">
+                    -{prLossPreview()} PR (doublé)
+                  </span>
+                </div>
+              )}
             </div>
 
             <motion.button

@@ -96,6 +96,18 @@ alter table public.predictions
 alter table public.predictions
   add column if not exists resolved_at timestamptz;
 
+alter table public.predictions
+  add column if not exists insurance_applied boolean not null default false;
+
+alter table public.predictions
+  add column if not exists gain_boost_applied boolean not null default false;
+
+alter table public.predictions
+  add column if not exists xp_boost_applied boolean not null default false;
+
+alter table public.predictions
+  add column if not exists pr_gamble_applied boolean not null default false;
+
 drop function if exists public.place_prediction(uuid, text, integer);
 
 alter table public.profiles
@@ -150,7 +162,11 @@ create policy "profile_achievements_select_own"
 create or replace function public.place_prediction(
   p_match_id bigint,
   p_selected_team text,
-  p_stake integer
+  p_stake integer,
+  p_use_insurance boolean default false,
+  p_use_gain_boost boolean default false,
+  p_use_pr_gamble boolean default false,
+  p_use_xp_boost boolean default false
 )
 returns public.predictions
 language plpgsql
@@ -167,6 +183,15 @@ declare
   v_existing integer;
   v_prediction public.predictions%rowtype;
   v_total_predictions integer;
+  v_insurance_id bigint;
+  v_gain_boost_id bigint;
+  v_xp_boost_id bigint;
+  v_xp_boost_uses integer;
+  v_pr_gamble_id bigint;
+  v_insurance_applied boolean := false;
+  v_gain_boost_applied boolean := false;
+  v_xp_boost_applied boolean := false;
+  v_pr_gamble_applied boolean := false;
 begin
   if v_user_id is null then
     raise exception 'Non authentifie';
@@ -217,12 +242,79 @@ begin
     raise exception 'Mise maximum autorisee : % points', v_max_stake;
   end if;
 
+  if p_use_insurance then
+    select id into v_insurance_id
+      from public.profile_boosts
+      where user_id = v_user_id and boost_type = 'insurance' and status = 'pending'
+      order by created_at
+      limit 1
+      for update;
+
+    if v_insurance_id is not null then
+      update public.profile_boosts set status = 'consumed', consumed_at = now() where id = v_insurance_id;
+      v_insurance_applied := true;
+    end if;
+  end if;
+
+  if p_use_gain_boost then
+    select id into v_gain_boost_id
+      from public.profile_boosts
+      where user_id = v_user_id and boost_type = 'gain_boost' and status = 'pending'
+      order by created_at
+      limit 1
+      for update;
+
+    if v_gain_boost_id is not null then
+      update public.profile_boosts set status = 'consumed', consumed_at = now() where id = v_gain_boost_id;
+      v_gain_boost_applied := true;
+    end if;
+  end if;
+
+  if p_use_pr_gamble then
+    select id into v_pr_gamble_id
+      from public.profile_boosts
+      where user_id = v_user_id and boost_type = 'pr_gamble' and status = 'pending'
+      order by created_at
+      limit 1
+      for update;
+
+    if v_pr_gamble_id is not null then
+      update public.profile_boosts set status = 'consumed', consumed_at = now() where id = v_pr_gamble_id;
+      v_pr_gamble_applied := true;
+    end if;
+  end if;
+
+  if p_use_xp_boost then
+    select id, uses_remaining into v_xp_boost_id, v_xp_boost_uses
+      from public.profile_boosts
+      where user_id = v_user_id and boost_type = 'xp_boost' and status = 'pending' and uses_remaining > 0
+      order by created_at
+      limit 1
+      for update;
+
+    if v_xp_boost_id is not null then
+      v_xp_boost_applied := true;
+
+      if v_xp_boost_uses <= 1 then
+        update public.profile_boosts set status = 'consumed', consumed_at = now(), uses_remaining = 0 where id = v_xp_boost_id;
+      else
+        update public.profile_boosts set uses_remaining = v_xp_boost_uses - 1 where id = v_xp_boost_id;
+      end if;
+    end if;
+  end if;
+
   update public.profiles
     set points = points - p_stake
     where id = v_user_id;
 
-  insert into public.predictions (user_id, match_id, selected_team, stake, odds, status, max_stake_at_placement)
-  values (v_user_id, p_match_id, p_selected_team, p_stake, v_odds, 'pending', v_max_stake)
+  insert into public.predictions (
+    user_id, match_id, selected_team, stake, odds, status, max_stake_at_placement,
+    insurance_applied, gain_boost_applied, xp_boost_applied, pr_gamble_applied
+  )
+  values (
+    v_user_id, p_match_id, p_selected_team, p_stake, v_odds, 'pending', v_max_stake,
+    v_insurance_applied, v_gain_boost_applied, v_xp_boost_applied, v_pr_gamble_applied
+  )
   returning * into v_prediction;
 
   select count(*) into v_total_predictions
@@ -239,7 +331,7 @@ begin
 end;
 $$;
 
-grant execute on function public.place_prediction(bigint, text, integer) to authenticated;
+grant execute on function public.place_prediction(bigint, text, integer, boolean, boolean, boolean, boolean) to authenticated;
 
 drop function if exists public.resolve_match(uuid, text);
 
@@ -274,6 +366,7 @@ declare
   v_rating_base_gain integer;
   v_rating_gain integer;
   v_rating_loss integer;
+  v_insurance_refund integer;
 begin
   if v_caller is null then
     raise exception 'Non authentifie';
@@ -315,11 +408,24 @@ begin
 
     if v_pred.selected_team = p_winner then
       v_gain := round(v_pred.stake * v_pred.odds);
+
+      if v_pred.gain_boost_applied then
+        v_gain := round(v_gain * 1.2);
+      end if;
+
       v_xp_gain := round(v_gain / 10.0);
+
+      if v_pred.xp_boost_applied then
+        v_xp_gain := round(v_xp_gain * 1.3);
+      end if;
 
       v_stake_ratio := v_pred.stake::numeric / greatest(coalesce(v_pred.max_stake_at_placement, v_pred.stake), 1);
       v_rating_base_gain := round(10 * v_pred.odds * v_stake_ratio);
       v_rating_gain := round(v_rating_base_gain * v_rating_multiplier);
+
+      if v_pred.pr_gamble_applied then
+        v_rating_gain := v_rating_gain * 2;
+      end if;
 
       update public.predictions set status = 'won', rating_delta = v_rating_gain, resolved_at = now() where id = v_pred.id;
 
@@ -367,7 +473,13 @@ begin
         on conflict (user_id, achievement_key) do nothing;
       end if;
     else
-      v_new_xp := v_current_xp + 5;
+      v_xp_gain := 5;
+
+      if v_pred.xp_boost_applied then
+        v_xp_gain := round(v_xp_gain * 1.3);
+      end if;
+
+      v_new_xp := v_current_xp + v_xp_gain;
       v_new_level := v_current_level;
 
       while v_new_xp >= (v_new_level * (v_new_level + 1) * 100) / 2 loop
@@ -379,7 +491,14 @@ begin
         when v_current_rating >= 1400 then 5
         else 0
       end;
+
+      if v_pred.pr_gamble_applied then
+        v_rating_loss := v_rating_loss * 2;
+      end if;
+
       v_new_rating := greatest(v_current_rating - v_rating_loss, 0);
+
+      v_insurance_refund := case when v_pred.insurance_applied then round(v_pred.stake * 0.5) else 0 end;
 
       update public.predictions set status = 'lost', rating_delta = -v_rating_loss, resolved_at = now() where id = v_pred.id;
 
@@ -387,7 +506,8 @@ begin
         set xp = v_new_xp,
             level = v_new_level,
             win_streak = 0,
-            rating = v_new_rating
+            rating = v_new_rating,
+            points = points + v_insurance_refund
         where id = v_pred.user_id;
 
       if v_new_level >= 10 then
@@ -483,6 +603,104 @@ end;
 $$;
 
 grant execute on function public.buy_title(text) to authenticated;
+
+create table if not exists public.boost_catalog (
+  key text primary key,
+  price integer not null,
+  max_uses integer not null default 1
+);
+
+insert into public.boost_catalog (key, price, max_uses) values
+  ('xp_boost', 750, 3),
+  ('insurance', 1000, 1),
+  ('gain_boost', 1250, 1),
+  ('pr_gamble', 2500, 1)
+on conflict (key) do update set price = excluded.price, max_uses = excluded.max_uses;
+
+alter table public.boost_catalog enable row level security;
+
+drop policy if exists "boost_catalog_select_all" on public.boost_catalog;
+create policy "boost_catalog_select_all"
+  on public.boost_catalog
+  for select
+  to authenticated
+  using (true);
+
+create table if not exists public.profile_boosts (
+  id bigint generated always as identity primary key,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  boost_type text not null references public.boost_catalog(key),
+  status text not null default 'pending' check (status in ('pending', 'consumed')),
+  uses_remaining integer not null default 1,
+  created_at timestamptz not null default now(),
+  consumed_at timestamptz
+);
+
+alter table public.profile_boosts enable row level security;
+
+drop policy if exists "profile_boosts_select_own" on public.profile_boosts;
+create policy "profile_boosts_select_own"
+  on public.profile_boosts
+  for select
+  to authenticated
+  using (auth.uid() = user_id);
+
+create or replace function public.buy_boost(
+  p_boost_type text
+)
+returns public.profiles
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_user_id uuid := auth.uid();
+  v_profile public.profiles%rowtype;
+  v_price integer;
+  v_max_uses integer;
+  v_existing integer;
+begin
+  if v_user_id is null then
+    raise exception 'Non authentifie';
+  end if;
+
+  select price, max_uses into v_price, v_max_uses
+    from public.boost_catalog where key = p_boost_type;
+
+  if v_price is null then
+    raise exception 'Boost inconnu';
+  end if;
+
+  select count(*) into v_existing
+    from public.profile_boosts
+    where user_id = v_user_id and boost_type = p_boost_type and status = 'pending';
+
+  if v_existing > 0 then
+    raise exception 'Tu as deja un boost de ce type actif';
+  end if;
+
+  select * into v_profile from public.profiles where id = v_user_id for update;
+  if not found then
+    raise exception 'Profil introuvable';
+  end if;
+
+  if v_profile.points < v_price then
+    raise exception 'Pas assez de points';
+  end if;
+
+  update public.profiles
+    set points = points - v_price
+    where id = v_user_id
+    returning * into v_profile;
+
+  insert into public.profile_boosts (user_id, boost_type, status, uses_remaining)
+  values (v_user_id, p_boost_type, 'pending', v_max_uses);
+
+  return v_profile;
+end;
+$$;
+
+grant execute on function public.buy_boost(text) to authenticated;
 
 create or replace function public.claim_achievement(
   p_key text

@@ -52,7 +52,7 @@ export default function PredictionsPage() {
       </h1>
 
       <p className="mb-8 text-zinc-500">
-        Suit toutes t'es prédictions
+        Suit tous tes pronostics
       </p>
 
       <div className="my-6 h-px w-full bg-white/10" />
@@ -107,26 +107,26 @@ export default function PredictionsPage() {
                   </p>
 
                   <p className="text-sm text-zinc-500">
-                    Pick : {prediction.selected_team}
+                    Choix : {prediction.selected_team}
                   </p>
                 </div>
 
                 <div>
                   {isWon && (
                     <span className="text-green-400">
-                     WON
+                     GAGNÉ
                     </span>
                   )}
 
                   {isLost && (
                     <span className="text-red-400">
-                     LOST
+                     PERDU
                     </span>
                   )}
 
                   {!isWon && !isLost && (
                     <span className="text-purple-400">
-                     PENDING
+                     EN ATTENTE
                     </span>
                   )}
                 </div>

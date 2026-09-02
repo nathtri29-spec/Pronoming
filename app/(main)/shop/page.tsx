@@ -6,6 +6,40 @@ import { RewardPopup } from "@/components/reward-popup"
 import { ShopSkeleton } from "@/components/shop-skeleton"
 import { Gem, Gamepad2 } from "lucide-react"
 import { titleStyles } from "@/lib/title-styles"
+import { boostDefs, boostKeys, type BoostKey } from "@/lib/boost-styles"
+import { motion, useMotionValue, useTransform, animate } from "framer-motion"
+
+const gridVariants = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.05 } },
+}
+
+const itemVariants = {
+  hidden: { opacity: 0, scale: 0.95, y: 6 },
+  show: {
+    opacity: 1,
+    scale: 1,
+    y: 0,
+    transition: { type: "spring" as const, bounce: 0.3, duration: 0.4 },
+  },
+}
+
+function AnimatedPoints({ value }: { value: number }) {
+  const motionValue = useMotionValue(value)
+  const rounded = useTransform(motionValue, (v) => Math.round(v).toLocaleString("fr-FR"))
+  const [display, setDisplay] = useState(rounded.get())
+
+  useEffect(() => {
+    const controls = animate(motionValue, value, { duration: 0.6, ease: "easeOut" })
+    const unsubscribe = rounded.on("change", setDisplay)
+    return () => {
+      controls.stop()
+      unsubscribe()
+    }
+  }, [value])
+
+  return <span>{display}</span>
+}
 
 const titles = [
   {
@@ -42,12 +76,15 @@ const titles = [
 
 export default function ShopPage() {
   const [profile, setProfile] = useState<any>(null)
+  const [pendingBoosts, setPendingBoosts] = useState<any[]>([])
+  const [buyingBoost, setBuyingBoost] = useState<BoostKey | null>(null)
+  const [activeTab, setActiveTab] = useState<"titres" | "boosts">("titres")
 
   useEffect(() => {
     loadProfile()
   }, [])
 
-  const [purchaseAnimation, setPurchaseAnimation] = useState<string | null>(null)
+  const [purchaseAnimation, setPurchaseAnimation] = useState<{ title: string; subtitle: string } | null>(null)
 
   async function loadProfile() {
     const {
@@ -66,6 +103,39 @@ export default function ShopPage() {
       .single()
 
     if (data) setProfile(data)
+
+    const { data: boostsData } = await supabase
+      .from("profile_boosts")
+      .select("*")
+      .eq("user_id", user.id)
+      .eq("status", "pending")
+
+    setPendingBoosts(boostsData || [])
+  }
+
+  async function buyBoost(key: BoostKey) {
+    if (!profile) return
+
+    setBuyingBoost(key)
+
+    const { data, error } = await supabase.rpc("buy_boost", {
+      p_boost_type: key,
+    })
+
+    setBuyingBoost(null)
+
+    if (error) {
+      alert(error.message)
+      return
+    }
+
+    await loadProfile()
+
+    setPurchaseAnimation({ title: "Boost activé !", subtitle: boostDefs[key].label })
+
+    setTimeout(() => {
+      setPurchaseAnimation(null)
+    }, 3000)
   }
 
   async function buyTitle(title: any) {
@@ -99,7 +169,7 @@ export default function ShopPage() {
     }
 
     setProfile(data)
-  setPurchaseAnimation(title.name)
+  setPurchaseAnimation({ title: "Titre acheté !", subtitle: title.name })
 
 setTimeout(() => {
   setPurchaseAnimation(null)
@@ -150,13 +220,35 @@ setTimeout(() => {
 
         <div className="flex items-center gap-2 rounded-full border border-blue-400/40 bg-blue-500/15 px-4 py-2 text-blue-200 shadow-[0_0_14px_rgba(59,130,246,0.18)]">
           <Gamepad2 className="h-4 w-4 text-cyan-300" strokeWidth={2.2} />
-          <span className="font-bold">{profile.points}</span>
+          <span className="font-bold tabular-nums">
+            <AnimatedPoints value={profile.points} />
+          </span>
         </div>
       </div>
 
-      <div className="my-6 h-px w-full bg-white/10" />
+      <div className="mt-6 flex gap-1 rounded-2xl border border-white/10 bg-zinc-950 p-1">
+        {(["titres", "boosts"] as const).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className="relative flex-1 rounded-xl py-2.5 text-sm font-bold"
+          >
+            {activeTab === tab && (
+              <motion.div
+                layoutId="shop-tab-indicator"
+                className="absolute inset-0 rounded-xl bg-gradient-to-r from-purple-600 to-red-600"
+                transition={{ type: "spring", bounce: 0.2, duration: 0.5 }}
+              />
+            )}
+            <span className={`relative z-10 ${activeTab === tab ? "text-white" : "text-zinc-500"}`}>
+              {tab === "titres" ? "Titres" : "Boosts"}
+            </span>
+          </button>
+        ))}
+      </div>
 
-      <div className="rounded-3xl border border-white/10 bg-zinc-950 p-4">
+      {activeTab === "titres" && (
+      <div className="mt-6 rounded-3xl border border-white/10 bg-zinc-950 p-4">
         <div className="mb-4">
           <h2 className="text-xl font-extrabold">
             Titres
@@ -167,7 +259,7 @@ setTimeout(() => {
           </p>
         </div>
 
-        <div className="space-y-2.5">
+        <motion.div variants={gridVariants} initial="hidden" animate="show" className="space-y-2.5">
           {titles.map((title) => {
             const owned = profile.owned_titles?.includes(title.name)
             const equipped = profile.selected_title === title.name
@@ -177,8 +269,9 @@ setTimeout(() => {
             const iconColor = style.text.startsWith("bg-") ? "text-pink-300" : style.text
 
             return (
-              <div
+              <motion.div
                 key={title.name}
+                variants={itemVariants}
                 className={`rounded-2xl bg-gradient-to-r p-[1.5px] ${
                   equipped ? "from-purple-400 to-red-500" : "from-purple-500/40 to-red-500/40"
                 }`}
@@ -238,16 +331,99 @@ setTimeout(() => {
                   </button>
                 </div>
               </div>
-              </div>
+              </motion.div>
             )
           })}
-        </div>
+        </motion.div>
       </div>
+      )}
+
+      {activeTab === "boosts" && (
+      <div className="mt-6 rounded-3xl border border-white/10 bg-zinc-950 p-4">
+        <div className="mb-4">
+          <h2 className="text-xl font-extrabold">
+            Boosts
+          </h2>
+
+          <p className="text-xs text-zinc-500">
+            Des coups de pouce ponctuels, sans impact sur ton rang compétitif
+          </p>
+        </div>
+
+        <motion.div variants={gridVariants} initial="hidden" animate="show" className="space-y-2.5">
+          {boostKeys.map((key) => {
+            const def = boostDefs[key]
+            const Icon = def.icon
+            const active = pendingBoosts.find((b) => b.boost_type === key)
+            const isBuying = buyingBoost === key
+
+            return (
+              <motion.div
+                key={key}
+                variants={itemVariants}
+                className={`rounded-2xl bg-gradient-to-r p-[1.5px] ${
+                  active ? "from-purple-400 to-red-500" : "from-purple-500/40 to-red-500/40"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-4 rounded-[15px] bg-zinc-950 p-4">
+                  <div className="flex min-w-0 flex-1 items-center gap-3">
+                    <div
+                      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br ${def.gradient}`}
+                      style={{ boxShadow: `0 0 16px ${def.glow}` }}
+                    >
+                      <Icon className="h-5 w-5 text-white" strokeWidth={2.2} />
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <h3 className="truncate text-base font-extrabold text-white">
+                          {def.label}
+                        </h3>
+
+                        {active && (
+                          <span className="shrink-0 rounded-full border border-white/20 px-2 py-0.5 text-[10px] font-bold text-zinc-300">
+                            ACTIF{def.maxUses > 1 ? ` ${active.uses_remaining}/${def.maxUses}` : ""}
+                          </span>
+                        )}
+                      </div>
+
+                      <p className="mt-0.5 truncate text-xs text-zinc-500">
+                        {def.description}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex shrink-0 flex-col items-end gap-2">
+                    <span className="flex items-center gap-1 text-xs font-bold text-zinc-400">
+                      <Gamepad2 className="h-3 w-3" strokeWidth={2.2} />
+                      {def.price}
+                    </span>
+
+                    <button
+                      onClick={() => buyBoost(key)}
+                      disabled={!!active || isBuying}
+                      className={`rounded-lg px-4 py-1.5 text-xs font-bold ${
+                        active
+                          ? "border border-white/15 text-zinc-500"
+                          : "bg-gradient-to-r from-purple-600 to-red-600 text-white"
+                      }`}
+                    >
+                      {active ? "Actif" : isBuying ? "..." : "Acheter"}
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            )
+          })}
+        </motion.div>
+      </div>
+      )}
+
       <RewardPopup
         visible={!!purchaseAnimation}
         icon={<Gem className="h-8 w-8 text-white" strokeWidth={2.5} />}
-        title="Titre acheté !"
-        subtitle={purchaseAnimation ?? undefined}
+        title={purchaseAnimation?.title ?? ""}
+        subtitle={purchaseAnimation?.subtitle}
       />
 
     </div>

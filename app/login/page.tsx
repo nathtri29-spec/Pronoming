@@ -11,6 +11,7 @@ const errorTranslations: Record<string, string> = {
   "Password should be at least 6 characters": "Le mot de passe doit contenir au moins 6 caractères",
   "Unable to validate email address: invalid format": "Format d'email invalide",
   "Email not confirmed": "Email non confirmé, vérifie ta boîte mail",
+  "Email rate limit exceeded": "Trop de tentatives, réessaie dans quelques minutes",
 }
 
 function translateError(message: string) {
@@ -20,9 +21,35 @@ function translateError(message: string) {
 export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [loading, setLoading] = useState<"signup" | "login" | null>(null)
+  const [loading, setLoading] = useState<"signup" | "login" | "reset" | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [showForgotPassword, setShowForgotPassword] = useState(false)
+  const [resetSent, setResetSent] = useState(false)
   const router = useRouter()
+
+  const handleForgotPassword = async () => {
+    setError(null)
+
+    if (!email) {
+      setError("Entre ton email d'abord")
+      return
+    }
+
+    setLoading("reset")
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    })
+
+    setLoading(null)
+
+    if (error) {
+      setError(translateError(error.message))
+      return
+    }
+
+    setResetSent(true)
+  }
 
   const handleSignup = async () => {
     setError(null)
@@ -134,51 +161,124 @@ export default function LoginPage() {
         </div>
 
         <div className="rounded-3xl border border-white/10 bg-zinc-950 p-6 shadow-[0_0_30px_rgba(124,58,237,0.15)]">
-          <input
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="mb-4 w-full rounded-xl border border-zinc-800 bg-black p-4 text-white outline-none focus:border-purple-500"
-          />
+          {showForgotPassword ? (
+            resetSent ? (
+              <div className="text-center">
+                <p className="text-white">
+                  Email envoyé ! Vérifie ta boîte mail (et tes spams) pour le lien de réinitialisation.
+                </p>
 
-          <input
-            type="password"
-            placeholder="Mot de passe"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="mb-4 w-full rounded-xl border border-zinc-800 bg-black p-4 text-white outline-none focus:border-purple-500"
-          />
+                <button
+                  onClick={() => {
+                    setShowForgotPassword(false)
+                    setResetSent(false)
+                    setError(null)
+                  }}
+                  className="mt-5 text-sm font-bold text-purple-300"
+                >
+                  Retour à la connexion
+                </button>
+              </div>
+            ) : (
+              <>
+                <input
+                  type="email"
+                  placeholder="Email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="mb-4 w-full rounded-xl border border-zinc-800 bg-black p-4 text-white outline-none focus:border-purple-500"
+                />
 
-          {error && (
-            <motion.p
-              initial={{ opacity: 0, y: -6 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400"
-            >
-              {error}
-            </motion.p>
+                {error && (
+                  <motion.p
+                    initial={{ opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400"
+                  >
+                    {error}
+                  </motion.p>
+                )}
+
+                <motion.button
+                  whileTap={{ scale: 0.97 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 17 }}
+                  disabled={loading !== null}
+                  onClick={handleForgotPassword}
+                  className="w-full rounded-xl bg-gradient-to-r from-purple-600 to-red-600 p-4 font-bold text-white transition hover:opacity-90 disabled:opacity-60"
+                >
+                  {loading === "reset" ? "Envoi..." : "Envoyer le lien de réinitialisation"}
+                </motion.button>
+
+                <button
+                  onClick={() => {
+                    setShowForgotPassword(false)
+                    setError(null)
+                  }}
+                  className="mt-4 w-full text-center text-sm text-zinc-500"
+                >
+                  Retour à la connexion
+                </button>
+              </>
+            )
+          ) : (
+            <>
+              <input
+                type="email"
+                placeholder="Email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="mb-4 w-full rounded-xl border border-zinc-800 bg-black p-4 text-white outline-none focus:border-purple-500"
+              />
+
+              <input
+                type="password"
+                placeholder="Mot de passe"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full rounded-xl border border-zinc-800 bg-black p-4 text-white outline-none focus:border-purple-500"
+              />
+
+              <button
+                onClick={() => {
+                  setShowForgotPassword(true)
+                  setError(null)
+                }}
+                className="mb-4 mt-2 text-sm text-zinc-500"
+              >
+                Mot de passe oublié ?
+              </button>
+
+              {error && (
+                <motion.p
+                  initial={{ opacity: 0, y: -6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400"
+                >
+                  {error}
+                </motion.p>
+              )}
+
+              <motion.button
+                whileTap={{ scale: 0.97 }}
+                transition={{ type: "spring", stiffness: 400, damping: 17 }}
+                disabled={loading !== null}
+                onClick={handleSignup}
+                className="mb-3 w-full rounded-xl bg-gradient-to-r from-purple-600 to-purple-400 p-4 font-bold text-white transition hover:opacity-90 disabled:opacity-60"
+              >
+                {loading === "signup" ? "Création..." : "Créer un compte"}
+              </motion.button>
+
+              <motion.button
+                whileTap={{ scale: 0.97 }}
+                transition={{ type: "spring", stiffness: 400, damping: 17 }}
+                disabled={loading !== null}
+                onClick={handleLogin}
+                className="w-full rounded-xl bg-gradient-to-r from-red-600 to-red-500 p-4 font-bold text-white transition hover:opacity-90 disabled:opacity-60"
+              >
+                {loading === "login" ? "Connexion..." : "Se connecter"}
+              </motion.button>
+            </>
           )}
-
-          <motion.button
-            whileTap={{ scale: 0.97 }}
-            transition={{ type: "spring", stiffness: 400, damping: 17 }}
-            disabled={loading !== null}
-            onClick={handleSignup}
-            className="mb-3 w-full rounded-xl bg-gradient-to-r from-purple-600 to-purple-400 p-4 font-bold text-white transition hover:opacity-90 disabled:opacity-60"
-          >
-            {loading === "signup" ? "Création..." : "Créer un compte"}
-          </motion.button>
-
-          <motion.button
-            whileTap={{ scale: 0.97 }}
-            transition={{ type: "spring", stiffness: 400, damping: 17 }}
-            disabled={loading !== null}
-            onClick={handleLogin}
-            className="w-full rounded-xl bg-gradient-to-r from-red-600 to-red-500 p-4 font-bold text-white transition hover:opacity-90 disabled:opacity-60"
-          >
-            {loading === "login" ? "Connexion..." : "Se connecter"}
-          </motion.button>
         </div>
 
         <div className="mt-6 text-center text-xs text-zinc-600">
