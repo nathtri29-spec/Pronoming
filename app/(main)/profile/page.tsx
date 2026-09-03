@@ -1,10 +1,15 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { motion } from "framer-motion"
 import { supabase } from "@/lib/supabase"
 import { RankBadge } from "@/components/rank-badge"
 import { getRating, getRankFromRating } from "@/lib/rank"
 import { XpBar } from "@/components/xp-bar"
+import { AnimatedNumber } from "@/components/animated-number"
+import { BoostChips } from "@/components/boost-chip"
+import { getMaxStakePercent } from "@/lib/economy"
+import { useToast } from "@/components/toast-provider"
 import {
   Trophy,
   Clock,
@@ -16,12 +21,29 @@ import {
   Sparkles,
   Award,
   LogOut,
+  Users,
 } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { UserAvatar } from "@/components/user-avatar"
 import { ProfileSkeleton } from "@/components/profile-skeleton"
 import { getTitleStyle } from "@/lib/title-styles"
+import { useProfile } from "@/components/profile-provider"
+
+const gridVariants = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.06 } },
+}
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 10, scale: 0.96 },
+  show: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: { type: "spring" as const, bounce: 0.3, duration: 0.4 },
+  },
+}
 
 const seasonRankColors: Record<string, string> = {
   Bronze: "text-orange-700",
@@ -36,7 +58,8 @@ const seasonRankColors: Record<string, string> = {
 
 export default function ProfilePage() {
   const router = useRouter()
-  const [profile, setProfile] = useState<any>(null)
+  const toast = useToast()
+  const { user, profile, loading: profileLoading, refresh } = useProfile()
   const [predictions, setPredictions] = useState<any[]>([])
   const [stats, setStats] = useState({ wins: 0, losses: 0 })
   const [editingUsername, setEditingUsername] = useState(false)
@@ -45,24 +68,18 @@ export default function ProfilePage() {
   const [achievements, setAchievements] = useState<any[]>([])
   const [profileAchievements, setProfileAchievements] = useState<any[]>([])
   const [seasonHistory, setSeasonHistory] = useState<any[]>([])
+  const [pendingFriendRequests, setPendingFriendRequests] = useState(0)
 
   useEffect(() => {
-    fetchProfile()
-  }, [])
+    if (!profileLoading && !user) {
+      router.replace("/login")
+      return
+    }
 
-  async function fetchProfile() {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    if (user) fetchProfile(user.id)
+  }, [user, profileLoading, router])
 
-    if (!user) return
-
-    const { data: profileData } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", user.id)
-      .single()
-
+  async function fetchProfile(userId: string) {
     const { data: predictionsData } = await supabase
       .from("predictions")
       .select(`
@@ -72,7 +89,7 @@ export default function ProfilePage() {
           team_b
         )
       `)
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
       .order("created_at", { ascending: false })
 
     const { data: achievementsData } = await supabase
@@ -82,18 +99,25 @@ export default function ProfilePage() {
     const { data: profileAchievementsData } = await supabase
       .from("profile_achievements")
       .select("*")
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
 
     const { data: seasonHistoryData } = await supabase
       .from("season_results")
       .select("*, seasons (number)")
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
       .order("season_id", { ascending: false })
+
+    const { count: friendRequestsCount } = await supabase
+      .from("friendships")
+      .select("id", { count: "exact", head: true })
+      .eq("addressee_id", userId)
+      .eq("status", "pending")
+
+    setPendingFriendRequests(friendRequestsCount ?? 0)
 
     const wins = predictionsData?.filter((p) => p.status === "won").length || 0
     const losses = predictionsData?.filter((p) => p.status === "lost").length || 0
 
-    setProfile(profileData)
     setPredictions(predictionsData || [])
     setStats({ wins, losses })
     setAchievements(achievementsData || [])
@@ -108,7 +132,7 @@ export default function ProfilePage() {
     return "unclaimed"
   }
 
-  if (!profile) {
+  if (profileLoading || !profile) {
     return <ProfileSkeleton />
   }
 
@@ -122,10 +146,7 @@ export default function ProfilePage() {
   const progressXp = profile.xp - currentLevelXp
   const xpNeeded = nextLevelXp - currentLevelXp
   const progressPercent = (progressXp / xpNeeded) * 100
-  const maxStakePercent = Math.min(
-  10 + Math.floor((profile.level - 1) / 5) * 2,
-  20
-)
+  const maxStakePercent = Math.round(getMaxStakePercent(profile.level) * 100)
   const unclaimedCount = achievements.filter(
     (a) => getAchievementStatus(a.key) === "unclaimed"
   ).length
@@ -135,13 +156,9 @@ export default function ProfilePage() {
 
   async function updateUsername() {
   if (!newUsername.trim()) {
-    alert("Entre un pseudo valide")
+    toast.error("Entre un pseudo valide")
     return
   }
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
 
   if (!user) return
 
@@ -151,14 +168,11 @@ export default function ProfilePage() {
     .eq("id", user.id)
 
   if (error) {
-    alert(error.message)
+    toast.error(error.message)
     return
   }
 
-  setProfile({
-    ...profile,
-    username: newUsername.trim(),
-  })
+  await refresh()
 
   setEditingUsername(false)
 }
@@ -205,9 +219,9 @@ async function logout() {
     className="relative rounded-lg border border-zinc-700 bg-zinc-900 p-2"
   >
     <Settings className="h-4 w-4 text-zinc-300" strokeWidth={2.2} />
-    {unclaimedCount > 0 && (
+    {unclaimedCount + pendingFriendRequests > 0 && (
       <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
-        {unclaimedCount}
+        {unclaimedCount + pendingFriendRequests}
       </span>
     )}
   </button>
@@ -239,6 +253,19 @@ async function logout() {
           <Sparkles className="h-4 w-4 text-zinc-400" strokeWidth={2} />
           Personnalisation
         </button>
+
+        <button
+  onClick={() => router.push("/friends")}
+  className="relative flex w-full items-center gap-2 border-b border-zinc-800 px-3 py-2 text-left text-sm text-white"
+>
+  <Users className="h-4 w-4 text-zinc-400" strokeWidth={2} />
+  Amis
+  {pendingFriendRequests > 0 && (
+    <span className="absolute right-3 top-1/2 flex h-4 w-4 -translate-y-1/2 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+      {pendingFriendRequests}
+    </span>
+  )}
+</button>
 
         <button
   onClick={() => router.push("/profile/succes")}
@@ -337,7 +364,7 @@ async function logout() {
         </div>
       </div>
 
-      <div className="mt-6 grid grid-cols-2 gap-3">
+      <motion.div variants={gridVariants} initial="hidden" animate="show" className="mt-6 grid grid-cols-2 gap-3">
         <StatCard
           icon={Gamepad2}
           label="Points"
@@ -370,7 +397,7 @@ async function logout() {
           bg="bg-red-500/10"
           border="border-red-500/20"
         />
-      </div>
+      </motion.div>
 
       {seasonHistory.length > 0 && (
         <div className="mt-10">
@@ -438,23 +465,29 @@ async function logout() {
                 ? "border-red-500/30"
                 : "border-purple-500/30"
 
+              let gain = Math.round(prediction.stake * prediction.odds)
+              if (prediction.gain_boost_applied) gain = Math.round(gain * 1.2)
+
+              let xpGain = Math.round(gain / 10)
+              if (prediction.xp_boost_applied) xpGain = Math.round(xpGain * 1.3)
+
+              let lossXp = 5
+              if (prediction.xp_boost_applied) lossXp = Math.round(lossXp * 1.3)
+
               const pointsText = isWon
-                ? `+${Math.round(prediction.stake * prediction.odds)} pts`
+                ? `+${gain} pts`
                 : isLost
                 ? `-${prediction.stake} pts`
                 : "En attente"
 
-              const xpText = isWon
-                ? `+${Math.round((prediction.stake * prediction.odds) / 10)} XP`
-                : isLost
-                ? "+5 XP"
-                : null
+              const xpText = isWon ? `+${xpGain} XP` : isLost ? `+${lossXp} XP` : null
 
               return (
                 <div
                   key={prediction.id}
-                  className={`flex items-center gap-3 rounded-xl border ${border} bg-black/20 p-3`}
+                  className={`rounded-xl border ${border} bg-black/20 p-3`}
                 >
+                  <div className="flex items-center gap-3">
                   <div
                     className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${bg} ${color}`}
                   >
@@ -478,6 +511,9 @@ async function logout() {
                       <p className="text-xs text-purple-300">{xpText}</p>
                     )}
                   </div>
+                  </div>
+
+                  <BoostChips prediction={prediction} />
                 </div>
               )
             })}
@@ -504,7 +540,7 @@ function StatCard({
   border: string
 }) {
   return (
-    <div className={`flex items-center gap-3 rounded-xl border ${border} bg-black/30 p-4 backdrop-blur-sm`}>
+    <motion.div variants={itemVariants} className={`flex items-center gap-3 rounded-xl border ${border} bg-black/30 p-4 backdrop-blur-sm`}>
       <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${bg} ${color}`}>
         <Icon className="h-5 w-5" strokeWidth={2.2} />
       </div>
@@ -514,10 +550,10 @@ function StatCard({
           {label}
         </p>
 
-        <p className="text-xl font-bold text-white">
-          {value}
+        <p className="text-xl font-bold text-white tabular-nums">
+          {typeof value === "number" ? <AnimatedNumber value={value} /> : value}
         </p>
       </div>
-    </div>
+    </motion.div>
   )
 }

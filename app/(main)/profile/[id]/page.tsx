@@ -3,11 +3,12 @@
 import { useEffect, useState } from "react"
 import type React from "react"
 import { useParams, useRouter } from "next/navigation"
-import {ArrowLeft,Coins,Target,Trophy,Flame,TrendingUp,TrendingDown,} from "lucide-react"
+import {ArrowLeft,Coins,Target,Trophy,Flame,TrendingUp,TrendingDown,Shield,} from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { RankBadge } from "@/components/rank-badge"
 import { getRating, getRankFromRating } from "@/lib/rank"
 import { UserAvatar } from "@/components/user-avatar"
+import { PublicProfileSkeleton } from "@/components/public-profile-skeleton"
 
 export default function PublicProfilePage() {
   const params = useParams()
@@ -47,20 +48,35 @@ export default function PublicProfilePage() {
       console.log("Erreur predictions:", predictionsError)
     }
 
+    const { data: membership } = await supabase
+      .from("club_members")
+      .select("club_id")
+      .eq("user_id", profileId)
+      .maybeSingle()
+
+    let club = null
+
+    if (membership) {
+      const { data: clubData } = await supabase
+        .from("clubs")
+        .select("name")
+        .eq("id", membership.club_id)
+        .maybeSingle()
+
+      club = clubData
+    }
+
     setProfile({
       ...profileData,
       predictions: predictionsData ?? [],
+      club,
     })
 
     setLoading(false)
   }
 
   if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-black text-white">
-        Chargement...
-      </div>
-    )
+    return <PublicProfileSkeleton />
   }
 
   if (!profile) {
@@ -150,6 +166,16 @@ export default function PublicProfilePage() {
           <h1 className="mt-4 text-3xl font-black leading-tight">
             {profile.username || "Player"}
           </h1>
+
+          {profile.club && (
+            <button
+              onClick={() => router.push("/clubs")}
+              className="mt-2 flex items-center gap-1.5 rounded-full border border-purple-400/40 bg-purple-500/10 px-3 py-1 text-xs font-bold text-purple-300"
+            >
+              <Shield className="h-3 w-3" strokeWidth={2.5} />
+              {profile.club.name}
+            </button>
+          )}
 
           <div className="mt-3 flex flex-wrap items-center justify-center gap-3">
             <div className="flex items-center gap-2">

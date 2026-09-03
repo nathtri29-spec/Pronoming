@@ -8,6 +8,9 @@ import { supabase } from "@/lib/supabase"
 import { UserAvatar } from "@/components/user-avatar"
 import { avatarEmblems, avatarKeys } from "@/lib/avatars"
 import { getTitleStyle } from "@/lib/title-styles"
+import { useToast } from "@/components/toast-provider"
+import { PersonnalisationSkeleton } from "@/components/personnalisation-skeleton"
+import { useProfile } from "@/components/profile-provider"
 
 const gridVariants = {
   hidden: {},
@@ -25,33 +28,24 @@ const itemVariants = {
 }
 
 export default function PersonnalisationPage() {
+  // Etat local volontairement garde (pas de migration complete vers le
+  // contexte partage) : cette page a besoin d'une mise a jour optimiste
+  // instantanee sur la grille avatar/titre (apercu en direct). refresh()
+  // reste appele en arriere-plan pour propager le changement ailleurs
+  // (nav, autres pages) sans bloquer le retour visuel immediat ici.
   const [profile, setProfile] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
   const router = useRouter()
+  const toast = useToast()
+  const { user, profile: sharedProfile, loading: profileLoading, refresh } = useProfile()
 
   useEffect(() => {
-    fetchProfile()
-  }, [])
-
-  async function fetchProfile() {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
+    if (!profileLoading && !user) {
       router.replace("/login")
       return
     }
 
-    const { data } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", user.id)
-      .single()
-
-    setProfile(data)
-    setLoading(false)
-  }
+    if (sharedProfile) setProfile(sharedProfile)
+  }, [user, sharedProfile, profileLoading, router])
 
   async function updateAvatar(key: string) {
     if (!profile) return
@@ -62,11 +56,12 @@ export default function PersonnalisationPage() {
       .eq("id", profile.id)
 
     if (error) {
-      alert(error.message)
+      toast.error(error.message)
       return
     }
 
     setProfile({ ...profile, avatar_key: key })
+    refresh()
   }
 
   async function updateTitle(title: string) {
@@ -78,19 +73,16 @@ export default function PersonnalisationPage() {
       .eq("id", profile.id)
 
     if (error) {
-      alert(error.message)
+      toast.error(error.message)
       return
     }
 
     setProfile({ ...profile, selected_title: title })
+    refresh()
   }
 
-  if (loading || !profile) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-black text-white">
-        Chargement...
-      </div>
-    )
+  if (profileLoading || !profile) {
+    return <PersonnalisationSkeleton />
   }
 
   const ownedTitles = profile.owned_titles

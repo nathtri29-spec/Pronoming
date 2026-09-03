@@ -16,6 +16,9 @@ import {
   Lock,
   Check,
 } from "lucide-react"
+import { useToast } from "@/components/toast-provider"
+import { SuccesSkeleton } from "@/components/succes-skeleton"
+import { useProfile } from "@/components/profile-provider"
 
 const achievementStyles: Record<
   string,
@@ -70,6 +73,8 @@ const itemVariants = {
 
 export default function SuccesPage() {
   const router = useRouter()
+  const toast = useToast()
+  const { user, loading: profileLoading, refresh } = useProfile()
   const [achievements, setAchievements] = useState<any[]>([])
   const [profileAchievements, setProfileAchievements] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -77,19 +82,15 @@ export default function SuccesPage() {
   const [claimedAchievement, setClaimedAchievement] = useState<{ name: string; rewardText: string } | null>(null)
 
   useEffect(() => {
-    fetchData()
-  }, [])
-
-  async function fetchData() {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
+    if (!profileLoading && !user) {
       router.replace("/login")
       return
     }
 
+    if (user) fetchData(user.id)
+  }, [user, profileLoading, router])
+
+  async function fetchData(userId: string) {
     const { data: achievementsData } = await supabase
       .from("achievements")
       .select("*")
@@ -97,7 +98,7 @@ export default function SuccesPage() {
     const { data: profileAchievementsData } = await supabase
       .from("profile_achievements")
       .select("*")
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
 
     setAchievements(achievementsData || [])
     setProfileAchievements(profileAchievementsData || [])
@@ -121,7 +122,7 @@ export default function SuccesPage() {
     setClaimingKey(null)
 
     if (error) {
-      alert(error.message)
+      toast.error(error.message)
       return
     }
 
@@ -132,6 +133,8 @@ export default function SuccesPage() {
           : pa
       )
     )
+
+    await refresh()
 
     const achievement = achievements.find((a) => a.key === key)
 
@@ -151,12 +154,8 @@ export default function SuccesPage() {
     }
   }
 
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-black text-white">
-        Chargement...
-      </div>
-    )
+  if (profileLoading || loading) {
+    return <SuccesSkeleton />
   }
 
   const claimedCount = achievements.filter(

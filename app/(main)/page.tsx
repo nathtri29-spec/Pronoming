@@ -11,6 +11,10 @@ import { motion, AnimatePresence } from "framer-motion"
 import { getRatingMultiplier } from "@/lib/rank"
 import { useScrollLock } from "@/lib/use-scroll-lock"
 import { boostDefs, type BoostKey } from "@/lib/boost-styles"
+import { AnimatedNumber } from "@/components/animated-number"
+import { getMaxStake } from "@/lib/economy"
+import { useToast } from "@/components/toast-provider"
+import { useProfile } from "@/components/profile-provider"
 
 const backdropVariants = {
   hidden: { opacity: 0 },
@@ -24,10 +28,24 @@ const sheetVariants = {
   exit: { y: "100%", opacity: 0, transition: { duration: 0.28, ease: "easeIn" as const } },
 }
 
+const gridVariants = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.06 } },
+}
+
+const cardVariants = {
+  hidden: { opacity: 0, y: 12, scale: 0.97 },
+  show: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: { type: "spring" as const, bounce: 0.25, duration: 0.5 },
+  },
+}
+
 export default function Home() {
+  const { user, profile, loading: profileLoading, refresh } = useProfile()
   const [matches, setMatches] = useState<any[]>([])
-  const [user, setUser] = useState<any>(null)
-  const [profile, setProfile] = useState<any>(null)
   const [predictions, setPredictions] = useState<any[]>([])
   const [selectedMatch, setSelectedMatch] = useState<any>(null)
   const [selectedTeam, setSelectedTeam] = useState("")
@@ -36,6 +54,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true)
   const [seasonNumber, setSeasonNumber] = useState<number | null>(null)
   const router = useRouter()
+  const toast = useToast()
   const [predictionSuccess, setPredictionSuccess] = useState<string | null>(null)
   const [activeBoosts, setActiveBoosts] = useState<any[]>([])
   const [selectedBoosts, setSelectedBoosts] = useState<Set<BoostKey>>(new Set())
@@ -60,21 +79,19 @@ export default function Home() {
   }
 
   useEffect(() => {
-    loadData()
-  }, [])
+    if (!profileLoading && !user) {
+      router.replace("/login")
+      return
+    }
 
-  async function loadData() {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    loadMatches()
+  }, [profileLoading, user, router])
 
-    setUser(user)
+  useEffect(() => {
+    if (user) loadUserData(user.id)
+  }, [user])
 
-    if (!user) {
-  router.replace("/login")
-  return
-}
-
+  async function loadMatches() {
     const { data: matchesData } = await supabase
   .from("matches")
   .select("*")
@@ -93,50 +110,24 @@ export default function Home() {
 
     if (seasonData) setSeasonNumber(seasonData.number)
 
-    if (user) {
-      const { data: profileData } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user.id)
-        .single()
+    setLoading(false)
+  }
 
-        if (!profileData) {
-  await supabase.from("profiles").insert({
-    id: user.id,
-    username: user.email?.split("@")[0] || "player",
-    points: 1000,
-    xp: 0,
-    level: 1,
-    onboarding_completed: false,
-  })
+  async function loadUserData(userId: string) {
+    const { data: predictionsData } = await supabase
+      .from("predictions")
+      .select("*")
+      .eq("user_id", userId)
 
-  window.location.replace("/onboarding")
-  return
-}
+    if (predictionsData) setPredictions(predictionsData)
 
-      if (profileData) setProfile(profileData)
+    const { data: boostsData } = await supabase
+      .from("profile_boosts")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("status", "pending")
 
-        if (profileData && profileData.onboarding_completed === false) {
-  window.location.replace("/onboarding")
-  return
-}
-
-      const { data: predictionsData } = await supabase
-        .from("predictions")
-        .select("*")
-        .eq("user_id", user.id)
-
-      if (predictionsData) setPredictions(predictionsData)
-
-      const { data: boostsData } = await supabase
-        .from("profile_boosts")
-        .select("*")
-        .eq("user_id", user.id)
-        .eq("status", "pending")
-
-      setActiveBoosts(boostsData || [])
-        setLoading(false)
-    }
+    setActiveBoosts(boostsData || [])
   }
 
   function xpProgress() {
@@ -153,12 +144,11 @@ export default function Home() {
 
   function openPrediction(match: any, team: string, odds: number) {
     if (!profile) {
-      alert("Tu dois être connecté")
+      toast.error("Tu dois être connecté")
       return
     }
 
-    const maxPercent = Math.min(0.15 + Math.floor((profile.level - 1) / 5) * 0.02, 0.25)
-    const maxStake = Math.floor(profile.points * maxPercent)
+    const maxStake = getMaxStake(profile.points, profile.level)
 
     setSelectedMatch(match)
     setSelectedTeam(team)
@@ -171,7 +161,7 @@ export default function Home() {
     if (!user || !profile || !selectedMatch) return
 
     if (!stake || stake <= 0) {
-      alert("Entre un stake valide")
+      toast.error("Entre un stake valide")
       return
     }
 
@@ -179,15 +169,14 @@ export default function Home() {
     // mais c'est la fonction place_prediction (côté serveur) qui fait foi :
     // impossible de les contourner depuis le navigateur.
     if (stake > profile.points) {
-      alert("Pas assez de points")
+      toast.error("Pas assez de points")
       return
     }
 
-    const maxPercent = Math.min(0.15 + Math.floor((profile.level - 1) / 5) * 0.02, 0.25)
-    const maxStake = Math.floor(profile.points * maxPercent)
+    const maxStake = getMaxStake(profile.points, profile.level)
 
     if (stake > maxStake) {
-      alert(`Mise maximum autorisée : ${maxStake} points`)
+      toast.error(`Mise maximum autorisée : ${maxStake} points`)
       return
     }
 
@@ -196,7 +185,7 @@ export default function Home() {
     )
 
     if (existing) {
-      alert("Tu as déjà prédit ce match")
+      toast.error("Tu as déjà prédit ce match")
       return
     }
 
@@ -211,7 +200,7 @@ export default function Home() {
     })
 
     if (error) {
-      alert(error.message)
+      toast.error(error.message)
       return
     }
 
@@ -226,17 +215,13 @@ export default function Home() {
 setTimeout(() => {
   setPredictionSuccess(null)
 }, 2000)
-    loadData()
+    await refresh()
+    if (user) loadUserData(user.id)
   }
 
-  const maxStake = profile
-  ? Math.floor(
-      profile.points *
-      Math.min(0.15 + Math.floor((profile.level - 1) / 5) * 0.02, 0.25)
-    )
-  : 0
+  const maxStake = profile ? getMaxStake(profile.points, profile.level) : 0
 
-  if (loading) {
+  if (profileLoading || loading) {
   return <HomeSkeleton />
 }
 
@@ -266,7 +251,9 @@ setTimeout(() => {
 
       <div className="flex items-center gap-1.5 rounded-lg border border-blue-400/40 bg-blue-500/15 px-2.5 py-1.5 text-sm font-bold text-blue-200 shadow-[0_0_14px_rgba(59,130,246,0.18)]">
   <Gamepad2 className="h-3.5 w-3.5 text-cyan-300" />
-  <span>{profile?.points ?? 0}</span>
+  <span className="tabular-nums">
+    <AnimatedNumber value={profile?.points ?? 0} />
+  </span>
 </div>
     </div>
   </div>
@@ -274,7 +261,9 @@ setTimeout(() => {
   <div className="mt-4">
           <div className="mb-1 flex justify-between text-xs uppercase tracking-wider text-zinc-500">
             <span>Saison {seasonNumber ?? "-"} · LV {profile?.level ?? 1}</span>
-            <span>{profile?.xp ?? 0} XP</span>
+            <span className="tabular-nums">
+              <AnimatedNumber value={profile?.xp ?? 0} /> XP
+            </span>
           </div>
 
           <XpBar progress={xpProgress()} />
@@ -293,7 +282,7 @@ setTimeout(() => {
           </span>
         </div>
 
-        <div className="space-y-4">
+        <motion.div variants={gridVariants} initial="hidden" animate="show" className="space-y-4">
 
           {matches.length === 0 && (
   <div className="mt-8 rounded-2xl border border-white/10 bg-zinc-950 p-6 text-center">
@@ -325,9 +314,14 @@ const formattedTime =
     hour: "2-digit",
     minute: "2-digit",
   })
+
+const isLive = date.getTime() <= Date.now()
+const startsSoon = !isLive && date.getTime() - Date.now() < 2 * 60 * 60 * 1000
+
             return (
-              <div
+              <motion.div
                 key={match.id}
+                variants={cardVariants}
                 className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#08080d] p-4 shadow-[0_0_25px_rgba(124,58,237,0.08)] transition-all duration-200 hover:border-purple-500/50 hover:shadow-[0_0_30px_rgba(124,58,237,0.18)]"
               >
                 <div className="absolute left-0 top-0 h-1 w-full bg-gradient-to-r from-purple-600 to-red-600" />
@@ -363,6 +357,22 @@ const formattedTime =
                     {alreadyPredicted ? (
                       <span className="rounded-full border border-purple-500/40 bg-purple-600/20 px-2 py-1 text-[10px] font-bold text-purple-300">
                         PRONOSTIQUÉ
+                      </span>
+                    ) : isLive ? (
+                      <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-red-400">
+                        <span className="relative flex h-2 w-2">
+                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-75" />
+                          <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
+                        </span>
+                        En direct
+                      </span>
+                    ) : startsSoon ? (
+                      <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-amber-400">
+                        <span className="relative flex h-2 w-2">
+                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75" />
+                          <span className="relative inline-flex h-2 w-2 rounded-full bg-amber-400" />
+                        </span>
+                        Bientôt
                       </span>
                     ) : (
                       <p className="text-xs text-zinc-600">BO5</p>
@@ -413,10 +423,10 @@ const formattedTime =
                     </p>
                   </motion.button>
                 </div>
-              </div>
+              </motion.div>
             )
           })}
-        </div>
+        </motion.div>
       </main>
 
       <AnimatePresence>

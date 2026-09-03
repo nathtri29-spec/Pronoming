@@ -3,15 +3,33 @@
 import { useEffect, useState } from "react"
 import Image from "next/image"
 import { Info, Trophy,TrendingUp,TrendingDown } from "lucide-react"
+import { motion } from "framer-motion"
 import { supabase } from "@/lib/supabase"
 import { RankBadge } from "@/components/rank-badge"
 import { getRating, getRankFromRating } from "@/lib/rank"
 import { LeaderboardSkeleton } from "@/components/leaderboard-skeleton"
 import { UserAvatar } from "@/components/user-avatar"
+import { AnimatedNumber } from "@/components/animated-number"
 import { useRouter } from "next/navigation"
 import { useScrollLock } from "@/lib/use-scroll-lock"
+import { useProfile } from "@/components/profile-provider"
 
 type Tab = "league" | "global"
+
+const gridVariants = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.05 } },
+}
+
+const rowVariants = {
+  hidden: { opacity: 0, y: 10, scale: 0.98 },
+  show: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: { type: "spring" as const, bounce: 0.25, duration: 0.45 },
+  },
+}
 
 const rankTiers = [
   { name: "Bronze", range: "0 - 999 PR", img: "/ranks/bronze.png", color: "text-orange-700", border: "border-orange-700/50" },
@@ -25,8 +43,9 @@ const rankTiers = [
 ]
 
 export default function LeaderboardPage() {
+  const { user, loading: profileLoading } = useProfile()
+  const currentUserId = user?.id ?? null
   const [players, setPlayers] = useState<any[]>([])
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [tab, setTab] = useState<Tab>("league")
   const [showInfo, setShowInfo] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -36,21 +55,15 @@ export default function LeaderboardPage() {
 
 
   useEffect(() => {
-    fetchPlayers()
-  }, [])
-
-  async function fetchPlayers() {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      window.location.replace("/login")
+    if (!profileLoading && !user) {
+      router.replace("/login")
       return
     }
 
-    setCurrentUserId(user.id)
+    if (user) fetchPlayers(user.id)
+  }, [user, profileLoading, router])
 
+  async function fetchPlayers(userId: string) {
     const { data } = await supabase
       .from("profiles")
       .select("*")
@@ -61,7 +74,7 @@ export default function LeaderboardPage() {
     const { data: predictionsData } = await supabase
       .from("predictions")
       .select("rating_delta, resolved_at")
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
       .not("resolved_at", "is", null)
 
     if (predictionsData) {
@@ -102,7 +115,7 @@ export default function LeaderboardPage() {
         100
       : 100
 
-  if (loading) {
+  if (profileLoading || loading) {
     return <LeaderboardSkeleton />
   }
 
@@ -140,8 +153,8 @@ export default function LeaderboardPage() {
           {currentRank.name}
         </h2>
 
-        <p className="mt-3 text-3xl font-black text-white">
-          {Math.round(currentRating)} PR
+        <p className="mt-3 text-3xl font-black text-white tabular-nums">
+          <AnimatedNumber value={currentRating} /> PR
         </p>
 
         <p className="mt-1 text-sm font-bold text-zinc-500">
@@ -257,7 +270,7 @@ export default function LeaderboardPage() {
       </button>
     </div>
 
-    <div className="mt-4 space-y-3">
+    <motion.div variants={gridVariants} initial="hidden" animate="show" className="mt-4 space-y-3">
       {displayedPlayers.map((player, index) => {
         const isMe = player.id === currentUserId
         const playerRating = getRating(player)
@@ -265,8 +278,9 @@ export default function LeaderboardPage() {
         const position = index + 1
 
         return (
-  <div
+  <motion.div
   key={player.id}
+  variants={rowVariants}
   onClick={() => router.push(`/profile/${player.id}`)}
     className={`flex items-center gap-4 rounded-2xl border bg-zinc-950/90 p-4 transition-all duration-300 hover:scale-[1.01] ${
       isMe
@@ -305,15 +319,15 @@ export default function LeaderboardPage() {
     </div>
 
     <div className="text-right">
-      <p className="text-xl font-black text-purple-300">
-        {Math.round(playerRating)}
+      <p className="text-xl font-black text-purple-300 tabular-nums">
+        <AnimatedNumber value={playerRating} />
       </p>
       <p className="text-[10px] font-bold text-zinc-500">PR</p>
     </div>
-  </div>
+  </motion.div>
 )
       })}
-    </div>
+    </motion.div>
 
     {showInfo && (
       <div

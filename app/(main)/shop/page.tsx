@@ -1,13 +1,17 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { RewardPopup } from "@/components/reward-popup"
 import { ShopSkeleton } from "@/components/shop-skeleton"
 import { Gem, Gamepad2 } from "lucide-react"
 import { titleStyles } from "@/lib/title-styles"
 import { boostDefs, boostKeys, type BoostKey } from "@/lib/boost-styles"
-import { motion, useMotionValue, useTransform, animate } from "framer-motion"
+import { AnimatedNumber } from "@/components/animated-number"
+import { motion } from "framer-motion"
+import { useToast } from "@/components/toast-provider"
+import { useProfile } from "@/components/profile-provider"
 
 const gridVariants = {
   hidden: {},
@@ -22,23 +26,6 @@ const itemVariants = {
     y: 0,
     transition: { type: "spring" as const, bounce: 0.3, duration: 0.4 },
   },
-}
-
-function AnimatedPoints({ value }: { value: number }) {
-  const motionValue = useMotionValue(value)
-  const rounded = useTransform(motionValue, (v) => Math.round(v).toLocaleString("fr-FR"))
-  const [display, setDisplay] = useState(rounded.get())
-
-  useEffect(() => {
-    const controls = animate(motionValue, value, { duration: 0.6, ease: "easeOut" })
-    const unsubscribe = rounded.on("change", setDisplay)
-    return () => {
-      controls.stop()
-      unsubscribe()
-    }
-  }, [value])
-
-  return <span>{display}</span>
 }
 
 const titles = [
@@ -75,39 +62,30 @@ const titles = [
 ]
 
 export default function ShopPage() {
-  const [profile, setProfile] = useState<any>(null)
+  const toast = useToast()
+  const router = useRouter()
+  const { user, profile, loading, refresh } = useProfile()
   const [pendingBoosts, setPendingBoosts] = useState<any[]>([])
   const [buyingBoost, setBuyingBoost] = useState<BoostKey | null>(null)
   const [activeTab, setActiveTab] = useState<"titres" | "boosts">("titres")
 
   useEffect(() => {
-    loadProfile()
-  }, [])
+    if (!loading && !user) {
+      router.replace("/login")
+    }
+  }, [loading, user, router])
+
+  useEffect(() => {
+    if (profile?.id) loadBoosts()
+  }, [profile?.id])
 
   const [purchaseAnimation, setPurchaseAnimation] = useState<{ title: string; subtitle: string } | null>(null)
 
-  async function loadProfile() {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      window.location.replace("/login")
-      return
-    }
-
-    const { data } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", user.id)
-      .single()
-
-    if (data) setProfile(data)
-
+  async function loadBoosts() {
     const { data: boostsData } = await supabase
       .from("profile_boosts")
       .select("*")
-      .eq("user_id", user.id)
+      .eq("user_id", profile.id)
       .eq("status", "pending")
 
     setPendingBoosts(boostsData || [])
@@ -118,18 +96,19 @@ export default function ShopPage() {
 
     setBuyingBoost(key)
 
-    const { data, error } = await supabase.rpc("buy_boost", {
+    const { error } = await supabase.rpc("buy_boost", {
       p_boost_type: key,
     })
 
     setBuyingBoost(null)
 
     if (error) {
-      alert(error.message)
+      toast.error(error.message)
       return
     }
 
-    await loadProfile()
+    await refresh()
+    await loadBoosts()
 
     setPurchaseAnimation({ title: "Boost activé !", subtitle: boostDefs[key].label })
 
@@ -155,20 +134,20 @@ export default function ShopPage() {
     // débit des points sont revérifiés côté serveur par buy_title, qui
     // seule fait foi.
     if (profile.points < title.price) {
-      alert("Tu n'as pas assez de points")
+      toast.error("Tu n'as pas assez de points")
       return
     }
 
-    const { data, error } = await supabase.rpc("buy_title", {
+    const { error } = await supabase.rpc("buy_title", {
       p_title_name: title.name,
     })
 
     if (error) {
-      alert(error.message)
+      toast.error(error.message)
       return
     }
 
-    setProfile(data)
+    await refresh()
   setPurchaseAnimation({ title: "Titre acheté !", subtitle: title.name })
 
 setTimeout(() => {
@@ -186,17 +165,14 @@ setTimeout(() => {
       .eq("id", profile.id)
 
     if (error) {
-      alert(error.message)
+      toast.error(error.message)
       return
     }
 
-    setProfile({
-      ...profile,
-      selected_title: titleName,
-    })
+    await refresh()
   }
 
-  if (!profile) {
+  if (loading || !profile) {
     return <ShopSkeleton />
   }
 
@@ -221,7 +197,7 @@ setTimeout(() => {
         <div className="flex items-center gap-2 rounded-full border border-blue-400/40 bg-blue-500/15 px-4 py-2 text-blue-200 shadow-[0_0_14px_rgba(59,130,246,0.18)]">
           <Gamepad2 className="h-4 w-4 text-cyan-300" strokeWidth={2.2} />
           <span className="font-bold tabular-nums">
-            <AnimatedPoints value={profile.points} />
+            <AnimatedNumber value={profile.points} />
           </span>
         </div>
       </div>

@@ -1,23 +1,29 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
+import { BoostChips } from "@/components/boost-chip"
+import { PredictionsSkeleton } from "@/components/predictions-skeleton"
+import { useProfile } from "@/components/profile-provider"
 
 export default function PredictionsPage() {
+  const router = useRouter()
+  const { user, loading: profileLoading } = useProfile()
   const [predictions, setPredictions] = useState<any[]>([])
   const [filter, setFilter] = useState("all")
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetchPredictions()
-  }, [])
+    if (!profileLoading && !user) {
+      router.replace("/login")
+      return
+    }
 
-  async function fetchPredictions() {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    if (user) fetchPredictions(user.id)
+  }, [user, profileLoading, router])
 
-    if (!user) return
-
+  async function fetchPredictions(userId: string) {
     const { data } = await supabase
       .from("predictions")
       .select(`
@@ -27,18 +33,24 @@ export default function PredictionsPage() {
           team_b
         )
       `)
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
       .order("created_at", { ascending: false })
 
     if (data) {
       setPredictions(data)
     }
+
+    setLoading(false)
   }
 
   const filteredPredictions = predictions.filter((prediction) => {
   if (filter === "all") return true
   return prediction.status === filter
 })
+
+  if (profileLoading || loading) {
+    return <PredictionsSkeleton />
+  }
 
   return (
     <div className="min-h-screen bg-black p-6 pb-24 text-white">
@@ -83,9 +95,18 @@ export default function PredictionsPage() {
           const isWon = prediction.status === "won"
           const isLost = prediction.status === "lost"
 
-          const gain = Math.round(
-            prediction.stake * prediction.odds
-          )
+          let gain = Math.round(prediction.stake * prediction.odds)
+          if (prediction.gain_boost_applied) gain = Math.round(gain * 1.2)
+
+          let xpGain = Math.round(gain / 10)
+          if (prediction.xp_boost_applied) xpGain = Math.round(xpGain * 1.3)
+
+          let lossXp = 5
+          if (prediction.xp_boost_applied) lossXp = Math.round(lossXp * 1.3)
+
+          const insuranceRefund = prediction.insurance_applied
+            ? Math.round(prediction.stake * 0.5)
+            : 0
 
           return (
             <div
@@ -149,7 +170,7 @@ export default function PredictionsPage() {
     </p>
 
     <p className="text-sm font-bold text-purple-300">
-      +{Math.round(gain / 10)} XP
+      +{xpGain} XP
     </p>
 
     {prediction.rating_delta != null && (
@@ -166,8 +187,14 @@ export default function PredictionsPage() {
       -{prediction.stake} pts
     </p>
 
+    {insuranceRefund > 0 && (
+      <p className="text-sm font-bold text-emerald-400">
+        +{insuranceRefund} pts remboursés (assurance)
+      </p>
+    )}
+
     <p className="text-sm font-bold text-purple-300">
-      +5 XP
+      +{lossXp} XP
     </p>
 
     {prediction.rating_delta != null && (
@@ -177,6 +204,8 @@ export default function PredictionsPage() {
     )}
   </div>
 )}
+
+              <BoostChips prediction={prediction} />
             </div>
           )
         })}
