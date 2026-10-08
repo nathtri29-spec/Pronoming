@@ -41,6 +41,7 @@ export default function StatsPage() {
   const [loading, setLoading] = useState(true)
   const [hasData, setHasData] = useState(false)
   const [chartDays, setChartDays] = useState<{ label: string; delta: number }[]>([])
+  const [activeDay, setActiveDay] = useState<number | null>(null)
   const [weekTotal, setWeekTotal] = useState(0)
   const [best, setBest] = useState<any>(null)
   const [worst, setWorst] = useState<any>(null)
@@ -239,8 +240,34 @@ export default function StatsPage() {
             {chartDays.map((day, i) => {
               const isLast = i === chartDays.length - 1
 
+              const tooltipColor = day.delta > 0 ? "#22c55e" : day.delta < 0 ? "#dc2626" : "#c084fc"
+              const tooltipTextColor = day.delta > 0 ? "#22c55e" : day.delta < 0 ? "#f87171" : "#ffffff"
+
               return (
-                <div key={i} className="flex flex-1 flex-col items-center">
+                <div
+                  key={i}
+                  className="relative flex flex-1 select-none flex-col items-center"
+                  style={{ touchAction: "manipulation", WebkitTouchCallout: "none" }}
+                  onPointerDown={() => setActiveDay(i)}
+                  onPointerUp={() => setActiveDay(null)}
+                  onPointerLeave={() => setActiveDay(null)}
+                  onPointerCancel={() => setActiveDay(null)}
+                >
+                  {activeDay === i && (
+                    <div
+                      className="absolute bottom-full left-1/2 z-20 mb-2 -translate-x-1/2 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-center"
+                      style={{ background: "#1a0b2e", border: `1px solid ${tooltipColor}` }}
+                    >
+                      <p className="text-sm font-black" style={{ color: tooltipTextColor }}>
+                        {day.delta > 0 ? "+" : ""}
+                        {day.delta} PR
+                      </p>
+                      <p className="text-[10px] font-bold" style={{ color: "rgba(255,255,255,0.4)" }}>
+                        {day.label}
+                      </p>
+                    </div>
+                  )}
+
                   <div className="flex h-16 w-full flex-col justify-end">
                     {day.delta > 0 && (
                       <div
