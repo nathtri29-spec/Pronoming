@@ -12,7 +12,6 @@ import { useToast } from "@/components/toast-provider"
 import { ClubsSkeleton } from "@/components/clubs-skeleton"
 import { useProfile } from "@/components/profile-provider"
 import {
-  ArrowLeft,
   Crown,
   Users,
   Check,
@@ -24,6 +23,8 @@ import {
   LogOut,
   Send,
   MessageCircle,
+  AlertTriangle,
+  Pencil,
 } from "lucide-react"
 
 const gridVariants = {
@@ -63,6 +64,8 @@ export default function ClubsPage() {
   const [myRole, setMyRole] = useState<"leader" | "member" | null>(null)
   const [members, setMembers] = useState<any[]>([])
   const [pendingRequests, setPendingRequests] = useState<any[]>([])
+  const [editingDescription, setEditingDescription] = useState(false)
+  const [descriptionDraft, setDescriptionDraft] = useState("")
 
   const [allClubs, setAllClubs] = useState<any[]>([])
   const [powerByClub, setPowerByClub] = useState<Record<number, { total: number; count: number }>>({})
@@ -370,6 +373,22 @@ export default function ClubsPage() {
     await fetchAll()
   }
 
+  async function saveDescription() {
+    setBusy(true)
+    const { error } = await supabase.rpc("update_club_description", {
+      p_description: descriptionDraft,
+    })
+    setBusy(false)
+
+    if (error) {
+      toast.error(error.message)
+      return
+    }
+
+    setEditingDescription(false)
+    await fetchAll()
+  }
+
   if (profileLoading || loading) {
     return <ClubsSkeleton />
   }
@@ -383,14 +402,6 @@ export default function ClubsPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-gradient-to-b from-[#17091f] via-[#0b0b12] to-black px-4 pb-24 pt-6 text-white">
-      <button
-        onClick={() => router.back()}
-        className="mb-4 flex items-center gap-2 text-sm font-bold text-zinc-300"
-      >
-        <ArrowLeft className="h-5 w-5" />
-        Retour
-      </button>
-
       <h1
         className="inline-block bg-clip-text text-3xl font-extrabold text-transparent"
         style={{ backgroundImage: "linear-gradient(to right, #c084fc, #dc2626 80%)" }}
@@ -452,27 +463,94 @@ export default function ClubsPage() {
       {tab === "club" && (
         <div className="mt-6">
           {myClub ? (
-            <div className="rounded-2xl border border-purple-400/30 bg-purple-500/5 p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+            <div className="rounded-2xl border border-purple-400/30 bg-gradient-to-b from-purple-500/10 to-transparent p-5">
+              <div className="flex items-center gap-3">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-purple-400/40 bg-gradient-to-br from-purple-600/30 to-red-600/20 shadow-[0_0_20px_rgba(168,85,247,0.25)]">
+                  <Shield className="h-7 w-7 text-purple-300" strokeWidth={2} />
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-purple-300/70">
                     Mon club
                   </p>
-                  <h2 className="text-xl font-black text-white">{myClub.name}</h2>
+                  <h2
+                    className="truncate bg-clip-text text-2xl font-black text-transparent"
+                    style={{ backgroundImage: "linear-gradient(to right, #c084fc, #dc2626 80%)" }}
+                  >
+                    {myClub.name}
+                  </h2>
+
+                  {editingDescription ? (
+                    <div className="mt-1 flex items-center gap-1.5">
+                      <input
+                        value={descriptionDraft}
+                        onChange={(e) => setDescriptionDraft(e.target.value.slice(0, 120))}
+                        maxLength={120}
+                        placeholder="Décris ton club..."
+                        autoFocus
+                        className="w-full rounded-lg border border-purple-400/40 bg-black/40 px-2 py-1 text-[12px] text-white outline-none focus:border-purple-400"
+                      />
+                      <button
+                        onClick={saveDescription}
+                        disabled={busy}
+                        className="shrink-0 text-[11px] font-bold text-purple-300"
+                      >
+                        OK
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="mt-1 flex items-center gap-1.5">
+                      <p
+                        className="truncate"
+                        style={{
+                          fontSize: "12px",
+                          color: "#a0a0c0",
+                          fontStyle: myClub.description ? "normal" : "italic",
+                        }}
+                      >
+                        {myClub.description || "Aucune description pour ce club"}
+                      </p>
+
+                      {myRole === "leader" && (
+                        <button
+                          onClick={() => {
+                            setDescriptionDraft(myClub.description || "")
+                            setEditingDescription(true)
+                          }}
+                          className="shrink-0 text-zinc-500 hover:text-purple-300"
+                        >
+                          <Pencil className="h-3 w-3" strokeWidth={2.5} />
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {myRole === "leader" && (
-                  <span className="flex items-center gap-1 rounded-full border border-yellow-500/40 bg-yellow-500/10 px-2.5 py-1 text-[10px] font-bold text-yellow-300">
+                  <span className="flex shrink-0 items-center gap-1 rounded-full border border-yellow-500/40 bg-yellow-500/10 px-2.5 py-1 text-[10px] font-bold text-yellow-300">
                     <Crown className="h-3 w-3" strokeWidth={2.5} />
                     CHEF
                   </span>
                 )}
               </div>
 
-              <p className="mt-1 text-xs text-zinc-500">
-                {members.length} membre{members.length > 1 ? "s" : ""} · Puissance{" "}
-                {powerByClub[myClub.id]?.total ?? 0} PR
-              </p>
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <div className="rounded-xl border border-white/10 bg-black/20 p-3 text-center">
+                  <p className="text-lg font-black text-white">{members.length}</p>
+                  <p className="text-[9px] font-bold uppercase tracking-wider text-zinc-500">
+                    Membre{members.length > 1 ? "s" : ""}
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-purple-400/20 bg-purple-500/5 p-3 text-center">
+                  <p className="text-lg font-black text-purple-300 tabular-nums">
+                    <AnimatedNumber value={powerByClub[myClub.id]?.total ?? 0} />
+                  </p>
+                  <p className="text-[9px] font-bold uppercase tracking-wider text-zinc-500">
+                    PR total
+                  </p>
+                </div>
+              </div>
 
               {myRole === "leader" && (
                 <div className="mt-3 flex flex-wrap gap-1.5">
@@ -602,9 +680,15 @@ export default function ClubsPage() {
                   <button
                     onClick={disband}
                     disabled={busy}
-                    className="flex-1 rounded-xl border border-red-500/40 py-2.5 text-sm font-bold text-red-400"
+                    className="flex-1 rounded-xl border border-red-500/40 bg-red-500/5 py-2.5 text-center text-sm font-bold text-red-400"
                   >
-                    Dissoudre
+                    <span className="flex items-center justify-center gap-1.5">
+                      <AlertTriangle className="h-4 w-4" strokeWidth={2.5} />
+                      Dissoudre
+                    </span>
+                    <span className="mt-0.5 block text-[10px] font-bold uppercase tracking-wider text-red-400/70">
+                      Action irréversible
+                    </span>
                   </button>
                 )}
               </div>
@@ -693,19 +777,25 @@ export default function ClubsPage() {
 
                 return (
                   <div key={msg.id} className={`flex items-end gap-2 ${isMe ? "flex-row-reverse" : ""}`}>
-                    <UserAvatar username={sender?.username} avatarKey={sender?.avatar_key} size={28} />
+                    <button
+                      onClick={() => router.push(`/profile/${msg.user_id}`)}
+                      className="shrink-0"
+                    >
+                      <UserAvatar username={sender?.username} avatarKey={sender?.avatar_key} size={28} />
+                    </button>
 
-                    <div className={`max-w-[75%] rounded-2xl px-3 py-2 ${
-                      isMe
-                        ? "rounded-br-sm bg-gradient-to-r from-purple-600 to-red-600"
-                        : "rounded-bl-sm bg-zinc-800"
-                    }`}>
-                      {!isMe && (
-                        <p className="text-[10px] font-bold text-purple-300">
-                          {sender?.username || "Player"}
-                        </p>
-                      )}
-                      <p className="text-sm text-white">{msg.content}</p>
+                    <div className={`flex max-w-[75%] flex-col gap-0.5 ${isMe ? "items-end" : "items-start"}`}>
+                      <p className="px-1 text-[10px] font-bold text-purple-300">
+                        {isMe ? "Toi" : sender?.username || "Player"}
+                      </p>
+
+                      <div className={`rounded-2xl px-3 py-2 ${
+                        isMe
+                          ? "rounded-br-sm bg-gradient-to-r from-purple-600 to-red-600"
+                          : "rounded-bl-sm bg-zinc-800"
+                      }`}>
+                        <p className="text-sm text-white">{msg.content}</p>
+                      </div>
                     </div>
                   </div>
                 )

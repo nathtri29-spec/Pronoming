@@ -3,25 +3,33 @@
 import { useEffect, useState } from "react"
 import type React from "react"
 import { useParams, useRouter } from "next/navigation"
-import {ArrowLeft,Coins,Target,Trophy,Flame,TrendingUp,TrendingDown,Shield,} from "lucide-react"
+import {ArrowLeft,Coins,Target,Trophy,Flame,TrendingUp,TrendingDown,Shield,UserPlus,Check,X,} from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { RankBadge } from "@/components/rank-badge"
 import { getRating, getRankFromRating } from "@/lib/rank"
 import { UserAvatar } from "@/components/user-avatar"
 import { PublicProfileSkeleton } from "@/components/public-profile-skeleton"
+import { useProfile } from "@/components/profile-provider"
+import { useToast } from "@/components/toast-provider"
+
+type FriendRelation = "self" | "none" | "pending_outgoing" | "pending_incoming" | "accepted"
 
 export default function PublicProfilePage() {
   const params = useParams()
   const router = useRouter()
+  const toast = useToast()
+  const { user } = useProfile()
   const profileId = params.id as string
 
   const [profile, setProfile] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [showAllPredictions, setShowAllPredictions] = useState(false)
+  const [relation, setRelation] = useState<FriendRelation>("none")
+  const [friendBusy, setFriendBusy] = useState(false)
 
   useEffect(() => {
     fetchProfile()
-  }, [profileId])
+  }, [profileId, user])
 
   async function fetchProfile() {
     setLoading(true)
@@ -72,7 +80,79 @@ export default function PublicProfilePage() {
       club,
     })
 
+    if (user) {
+      if (user.id === profileId) {
+        setRelation("self")
+      } else {
+        const { data: friendshipRows } = await supabase
+          .from("friendships")
+          .select("*")
+          .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`)
+
+        const row = (friendshipRows || []).find(
+          (f) => f.requester_id === profileId || f.addressee_id === profileId
+        )
+
+        if (!row) setRelation("none")
+        else if (row.status === "accepted") setRelation("accepted")
+        else if (row.requester_id === user.id) setRelation("pending_outgoing")
+        else setRelation("pending_incoming")
+      }
+    }
+
     setLoading(false)
+  }
+
+  async function sendFriendRequest() {
+    setFriendBusy(true)
+
+    const { error } = await supabase.rpc("send_friend_request", {
+      p_addressee_id: profileId,
+    })
+
+    setFriendBusy(false)
+
+    if (error) {
+      toast.error(error.message)
+      return
+    }
+
+    setRelation("pending_outgoing")
+  }
+
+  async function respondFriendRequest(accept: boolean) {
+    setFriendBusy(true)
+
+    const { error } = await supabase.rpc("respond_friend_request", {
+      p_requester_id: profileId,
+      p_accept: accept,
+    })
+
+    setFriendBusy(false)
+
+    if (error) {
+      toast.error(error.message)
+      return
+    }
+
+    setRelation(accept ? "accepted" : "none")
+  }
+
+  async function cancelFriendRequest() {
+    setFriendBusy(true)
+
+    const { error } = await supabase.rpc("remove_friend", {
+      p_other_id: profileId,
+    })
+
+    setFriendBusy(false)
+
+    if (error) {
+      toast.error(error.message)
+      return
+    }
+
+    setRelation("none")
   }
 
   if (loading) {
@@ -167,15 +247,65 @@ export default function PublicProfilePage() {
             {profile.username || "Player"}
           </h1>
 
-          {profile.club && (
-            <button
-              onClick={() => router.push("/clubs")}
-              className="mt-2 flex items-center gap-1.5 rounded-full border border-purple-400/40 bg-purple-500/10 px-3 py-1 text-xs font-bold text-purple-300"
-            >
-              <Shield className="h-3 w-3" strokeWidth={2.5} />
-              {profile.club.name}
-            </button>
-          )}
+          <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
+            {profile.club && (
+              <button
+                onClick={() => router.push("/clubs")}
+                className="flex items-center gap-1.5 rounded-full border border-purple-400/40 bg-purple-500/10 px-3 py-1 text-xs font-bold text-purple-300"
+              >
+                <Shield className="h-3 w-3" strokeWidth={2.5} />
+                {profile.club.name}
+              </button>
+            )}
+
+            {relation === "none" && (
+              <button
+                onClick={sendFriendRequest}
+                disabled={friendBusy}
+                className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-purple-600 to-red-600 px-3 py-1 text-xs font-bold text-white disabled:opacity-50"
+              >
+                <UserPlus className="h-3 w-3" strokeWidth={2.5} />
+                Ajouter en ami
+              </button>
+            )}
+
+            {relation === "pending_outgoing" && (
+              <button
+                onClick={cancelFriendRequest}
+                disabled={friendBusy}
+                className="flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-1 text-xs font-bold text-zinc-400"
+              >
+                Demande envoyée
+              </button>
+            )}
+
+            {relation === "pending_incoming" && (
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-bold text-zinc-400">Veut être ton ami</span>
+                <button
+                  onClick={() => respondFriendRequest(true)}
+                  disabled={friendBusy}
+                  className="flex items-center justify-center rounded-full bg-green-600 p-1.5"
+                >
+                  <Check className="h-3.5 w-3.5 text-white" strokeWidth={3} />
+                </button>
+                <button
+                  onClick={() => respondFriendRequest(false)}
+                  disabled={friendBusy}
+                  className="flex items-center justify-center rounded-full border border-white/15 p-1.5 text-zinc-400"
+                >
+                  <X className="h-3.5 w-3.5" strokeWidth={3} />
+                </button>
+              </div>
+            )}
+
+            {relation === "accepted" && (
+              <span className="flex items-center gap-1.5 rounded-full border border-purple-400/40 bg-purple-500/10 px-3 py-1 text-xs font-bold text-purple-300">
+                <Check className="h-3 w-3" strokeWidth={2.5} />
+                Ami
+              </span>
+            )}
+          </div>
 
           <div className="mt-3 flex flex-wrap items-center justify-center gap-3">
             <div className="flex items-center gap-2">

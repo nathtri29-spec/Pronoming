@@ -56,6 +56,31 @@ const achievementStyles: Record<
   },
 }
 
+function getProgressText(key: string, profile: any): string | null {
+  switch (key) {
+    case "win_streak_3": {
+      const remaining = Math.max(0, 3 - (profile?.win_streak ?? 0))
+      return remaining > 0 ? `Encore ${remaining} victoire${remaining > 1 ? "s" : ""} d'affilée` : null
+    }
+    case "total_wins_10": {
+      const remaining = Math.max(0, 10 - (profile?.total_wins ?? 0))
+      return remaining > 0 ? `Encore ${remaining} victoire${remaining > 1 ? "s" : ""}` : null
+    }
+    case "level_10": {
+      const remaining = Math.max(0, 10 - (profile?.level ?? 1))
+      return remaining > 0 ? `Encore ${remaining} niveau${remaining > 1 ? "x" : ""}` : null
+    }
+    case "first_prediction":
+      return "Place ton premier pronostic"
+    case "first_purchase":
+      return "Achète ton premier titre"
+    case "big_odds_win":
+      return "Gagne un prono à cote ≥ 3.0"
+    default:
+      return null
+  }
+}
+
 const gridVariants = {
   hidden: {},
   show: { transition: { staggerChildren: 0.05 } },
@@ -74,7 +99,7 @@ const itemVariants = {
 export default function SuccesPage() {
   const router = useRouter()
   const toast = useToast()
-  const { user, loading: profileLoading, refresh } = useProfile()
+  const { user, profile, loading: profileLoading, refresh } = useProfile()
   const [achievements, setAchievements] = useState<any[]>([])
   const [profileAchievements, setProfileAchievements] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -241,11 +266,17 @@ export default function SuccesPage() {
 
               <p
                 className={`text-[11px] font-semibold leading-tight ${
-                  isLocked ? "text-zinc-600" : "text-zinc-200"
+                  isLocked ? "text-zinc-400" : "text-zinc-200"
                 }`}
               >
                 {achievement.description}
               </p>
+
+              {isLocked && getProgressText(achievement.key, profile) && (
+                <p className="text-[9px] font-bold text-purple-300/70">
+                  {getProgressText(achievement.key, profile)}
+                </p>
+              )}
 
               {isUnclaimed && (
                 <span className="rounded-full bg-gradient-to-r from-purple-600 to-red-600 px-3 py-1 text-[10px] font-bold text-white">

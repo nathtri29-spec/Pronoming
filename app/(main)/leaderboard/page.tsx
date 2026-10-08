@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Image from "next/image"
-import { Info, Trophy,TrendingUp,TrendingDown } from "lucide-react"
+import { Info, Trophy,TrendingUp,TrendingDown,ArrowRight } from "lucide-react"
 import { motion } from "framer-motion"
 import { supabase } from "@/lib/supabase"
 import { RankBadge } from "@/components/rank-badge"
@@ -179,8 +179,9 @@ export default function LeaderboardPage() {
             </div>
           </div>
 
-          <div
-            className={`group relative overflow-hidden rounded-2xl border bg-white/5 p-4 shadow-[0_0_20px_rgba(74,222,128,0.12)] transition-all duration-300 ${
+          <button
+            onClick={() => router.push("/profile/stats")}
+            className={`group relative overflow-hidden rounded-2xl border bg-white/5 p-4 text-left shadow-[0_0_20px_rgba(74,222,128,0.12)] transition-all duration-300 ${
               todayPrDelta > 0
                 ? "border-green-400/30 hover:border-green-400/70 hover:shadow-[0_0_28px_rgba(74,222,128,0.28)]"
                 : todayPrDelta < 0
@@ -199,7 +200,13 @@ export default function LeaderboardPage() {
                     : "border-white/10 bg-white/5 text-zinc-400"
                 }`}
               >
-                {todayPrDelta < 0 ? <TrendingDown className="h-5 w-5" /> : <TrendingUp className="h-5 w-5" />}
+                {todayPrDelta > 0 ? (
+                  <TrendingUp className="h-5 w-5" />
+                ) : todayPrDelta < 0 ? (
+                  <TrendingDown className="h-5 w-5" />
+                ) : (
+                  <ArrowRight className="h-5 w-5" />
+                )}
               </div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">
                 Tendance
@@ -216,7 +223,7 @@ export default function LeaderboardPage() {
                 aujourd’hui
               </p>
             </div>
-          </div>
+          </button>
         </div>
 
         <div className="mt-5">
@@ -359,7 +366,11 @@ export default function LeaderboardPage() {
                     isCurrent ? `${tier.border} bg-white/[0.04]` : "border-white/5"
                   }`}
                 >
-                  <Image src={tier.img} alt={tier.name} width={32} height={32} className="h-8 w-8 object-contain" />
+                  {tier.name === "Platinum" ? (
+                    <RankBadge rank="Platinum" size={32} intensity={0.6} />
+                  ) : (
+                    <Image src={tier.img} alt={tier.name} width={32} height={32} className="h-8 w-8 object-contain" />
+                  )}
 
                   <p className={`flex-1 font-bold ${tier.color}`}>
                     {tier.name}

@@ -1,13 +1,14 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import Image from "next/image"
 import { supabase } from "@/lib/supabase"
 import { XpBar } from "@/components/xp-bar"
 import { RewardPopup } from "@/components/reward-popup"
 import { HomeSkeleton } from "@/components/home-skeleton"
 import { useRouter } from "next/navigation"
 import { FileText, Gamepad2, Check, Flame } from "lucide-react"
-import { motion, AnimatePresence } from "framer-motion"
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion"
 import { getRatingMultiplier } from "@/lib/rank"
 import { useScrollLock } from "@/lib/use-scroll-lock"
 import { boostDefs, type BoostKey } from "@/lib/boost-styles"
@@ -59,6 +60,7 @@ export default function Home() {
   const [activeBoosts, setActiveBoosts] = useState<any[]>([])
   const [selectedBoosts, setSelectedBoosts] = useState<Set<BoostKey>>(new Set())
   const sheetPanelRef = useScrollLock(!!selectedMatch)
+  const reduceMotion = useReducedMotion()
 
   function toggleBoost(type: BoostKey) {
     setSelectedBoosts((prev) => {
@@ -285,14 +287,56 @@ setTimeout(() => {
         <motion.div variants={gridVariants} initial="hidden" animate="show" className="space-y-4">
 
           {matches.length === 0 && (
-  <div className="mt-8 rounded-2xl border border-white/10 bg-zinc-950 p-6 text-center">
-    <p className="text-lg font-bold text-white">
-      Aucun match disponible
-    </p>
+  <div className="mt-12 flex flex-col items-center pt-10">
+    <div className="relative mb-5">
+      <div
+        className="rounded-xl px-4 py-2.5"
+        style={{
+          background: "rgba(124, 58, 237, 0.15)",
+          border: "1px solid #c084fc",
+        }}
+      >
+        <p className="text-[13px] font-bold text-white">
+          Les prochains matchs arrivent bientôt, reste prêt !
+        </p>
+      </div>
 
-    <p className="mt-2 text-sm text-zinc-500">
-      Les prochains matchs seront bientôt ajoutés.
-    </p>
+      <div
+        className="absolute left-1/2 -translate-x-1/2"
+        style={{
+          top: "100%",
+          width: 0,
+          height: 0,
+          borderLeft: "7px solid transparent",
+          borderRight: "7px solid transparent",
+          borderTop: "7px solid #c084fc",
+        }}
+      />
+      <div
+        className="absolute left-1/2 -translate-x-1/2"
+        style={{
+          top: "calc(100% - 1px)",
+          width: 0,
+          height: 0,
+          borderLeft: "6px solid transparent",
+          borderRight: "6px solid transparent",
+          borderTop: "6px solid rgba(124, 58, 237, 0.15)",
+        }}
+      />
+    </div>
+
+    <motion.div
+      animate={reduceMotion ? undefined : { y: [0, -6, 0] }}
+      transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+    >
+      <Image
+        src="/mascot/mascot.PNG"
+        alt="Mascotte Pronoming"
+        width={280}
+        height={280}
+        className="h-[280px] w-auto object-contain"
+      />
+    </motion.div>
   </div>
 )}
 
