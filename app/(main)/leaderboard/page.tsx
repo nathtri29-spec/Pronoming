@@ -135,7 +135,7 @@ export default function LeaderboardPage() {
     </p>
 
     <section
-      className={`relative mt-6 overflow-hidden rounded-[36px] border ${currentRank.border} bg-gradient-to-b from-zinc-900 via-zinc-950 to-black p-6 text-center ${currentRank.glow}`}
+      className={`relative mt-6 overflow-hidden rounded-[28px] border ${currentRank.border} bg-gradient-to-b from-zinc-900 via-zinc-950 to-black p-5 text-center ${currentRank.glow}`}
     >
       <div className="absolute -left-24 top-10 h-64 w-64 rounded-full bg-purple-600/15 blur-3xl" />
       <div className="absolute -right-20 bottom-0 h-56 w-56 rounded-full bg-fuchsia-500/15 blur-3xl" />
@@ -145,35 +145,35 @@ export default function LeaderboardPage() {
           Ma Ligue
         </p>
 
-        <div className="mt-5 flex justify-center">
-          <RankBadge rank={currentRank.name} />
+        <div className="mt-4 flex justify-center">
+          <RankBadge rank={currentRank.name} size={92} />
         </div>
 
-        <h2 className={`mt-5 text-5xl font-black tracking-[0.15em] uppercase ${currentRank.color}`}>
+        <h2 className={`mt-4 text-3xl font-black tracking-[0.15em] uppercase ${currentRank.color}`}>
           {currentRank.name}
         </h2>
 
-        <p className="mt-3 text-3xl font-black text-white tabular-nums">
+        <p className="mt-2 text-2xl font-black text-white tabular-nums">
           <AnimatedNumber value={currentRating} /> PR
         </p>
 
-        <p className="mt-1 text-sm font-bold text-zinc-500">
+        <p className="mt-1 text-xs font-bold text-zinc-500">
           {currentRank.nextRating
             ? `Encore ${Math.max(0, currentRank.nextRating - currentRating)} PR avant ${currentRank.next}`
             : "Tu es au rang maximum"}
         </p>
 
-        <div className="mt-5 grid grid-cols-2 gap-3">
-          <div className="group relative overflow-hidden rounded-2xl border border-purple-400/30 bg-white/5 p-4 shadow-[0_0_20px_rgba(168,85,247,0.12)] transition-all duration-300 hover:border-purple-400/70 hover:shadow-[0_0_28px_rgba(168,85,247,0.28)]">
+        <div className="mt-4 grid grid-cols-2 gap-2.5">
+          <div className="group relative overflow-hidden rounded-2xl border border-purple-400/30 bg-white/5 p-3 shadow-[0_0_20px_rgba(168,85,247,0.12)] transition-all duration-300 hover:border-purple-400/70 hover:shadow-[0_0_28px_rgba(168,85,247,0.28)]">
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
             <div className="relative z-10 flex flex-col items-center">
-              <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-xl border border-purple-400/40 bg-purple-500/10 text-purple-300 shadow-[0_0_18px_rgba(168,85,247,0.25)]">
-                <Trophy className="h-5 w-5" />
+              <div className="mb-1.5 flex h-8 w-8 items-center justify-center rounded-xl border border-purple-400/40 bg-purple-500/10 text-purple-300 shadow-[0_0_18px_rgba(168,85,247,0.25)]">
+                <Trophy className="h-4 w-4" />
               </div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+              <p className="text-[9px] font-bold uppercase tracking-wider text-zinc-500">
                 Position
               </p>
-              <p className="mt-1 text-xl font-black text-white">
+              <p className="mt-0.5 text-base font-black text-white">
                 #{myPosition || "-"} / {leaguePlayers.length || 0}
               </p>
             </div>
@@ -181,7 +181,7 @@ export default function LeaderboardPage() {
 
           <button
             onClick={() => router.push("/profile/stats")}
-            className={`group relative overflow-hidden rounded-2xl border bg-white/5 p-4 text-left shadow-[0_0_20px_rgba(74,222,128,0.12)] transition-all duration-300 ${
+            className={`group relative overflow-hidden rounded-2xl border bg-white/5 p-3 text-left shadow-[0_0_20px_rgba(74,222,128,0.12)] transition-all duration-300 ${
               todayPrDelta > 0
                 ? "border-green-400/30 hover:border-green-400/70 hover:shadow-[0_0_28px_rgba(74,222,128,0.28)]"
                 : todayPrDelta < 0
@@ -192,7 +192,7 @@ export default function LeaderboardPage() {
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
             <div className="relative z-10 flex flex-col items-center">
               <div
-                className={`mb-2 flex h-10 w-10 items-center justify-center rounded-xl border shadow-[0_0_18px_rgba(74,222,128,0.25)] ${
+                className={`mb-1.5 flex h-8 w-8 items-center justify-center rounded-xl border shadow-[0_0_18px_rgba(74,222,128,0.25)] ${
                   todayPrDelta > 0
                     ? "border-green-400/40 bg-green-500/10 text-green-300"
                     : todayPrDelta < 0
@@ -201,32 +201,32 @@ export default function LeaderboardPage() {
                 }`}
               >
                 {todayPrDelta > 0 ? (
-                  <TrendingUp className="h-5 w-5" />
+                  <TrendingUp className="h-4 w-4" />
                 ) : todayPrDelta < 0 ? (
-                  <TrendingDown className="h-5 w-5" />
+                  <TrendingDown className="h-4 w-4" />
                 ) : (
-                  <ArrowRight className="h-5 w-5" />
+                  <ArrowRight className="h-4 w-4" />
                 )}
               </div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+              <p className="text-[9px] font-bold uppercase tracking-wider text-zinc-500">
                 Tendance
               </p>
               <p
-                className={`mt-1 text-xl font-black ${
+                className={`mt-0.5 text-base font-black ${
                   todayPrDelta > 0 ? "text-green-400" : todayPrDelta < 0 ? "text-red-400" : "text-zinc-400"
                 }`}
               >
                 {todayPrDelta > 0 ? "+" : ""}
                 {todayPrDelta} PR
               </p>
-              <p className="text-[10px] font-bold text-zinc-500">
+              <p className="text-[9px] font-bold text-zinc-500">
                 aujourd’hui
               </p>
             </div>
           </button>
         </div>
 
-        <div className="mt-5">
+        <div className="mt-4">
           <div className="mb-2 flex justify-between text-xs font-bold text-zinc-500">
             <span>{currentRank.name}</span>
             <span>{currentRank.next || "Legend"}</span>
