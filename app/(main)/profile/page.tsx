@@ -207,7 +207,7 @@ async function logout() {
 
     <button
       onClick={() => router.push("/profile/succes")}
-      className="flex items-center gap-1 rounded-full border border-yellow-500/40 bg-yellow-500/10 px-2.5 py-1 text-[11px] font-bold text-yellow-300"
+      className="flex items-center gap-1 rounded-full border border-purple-500/40 bg-purple-500/10 px-2.5 py-1 text-[11px] font-bold text-purple-300"
     >
       <Trophy className="h-3 w-3" strokeWidth={2.5} />
       {claimedCount}/{achievements.length}

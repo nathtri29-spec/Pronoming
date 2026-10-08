@@ -196,7 +196,7 @@ export default function LeaderboardPage() {
       </button>
     </div>
 
-    <motion.div variants={gridVariants} initial="hidden" animate="show" className="mt-4 space-y-3">
+    <motion.div variants={gridVariants} initial="hidden" animate="show" className="mt-4 space-y-2">
       {displayedPlayers.map((player, index) => {
         const isMe = player.id === currentUserId
         const playerRating = getRating(player)
@@ -208,7 +208,7 @@ export default function LeaderboardPage() {
   key={player.id}
   variants={rowVariants}
   onClick={() => router.push(`/profile/${player.id}`)}
-    className={`flex items-center gap-4 rounded-2xl border bg-zinc-950/90 p-4 transition-all duration-300 hover:scale-[1.01] ${
+    className={`flex items-center gap-3 rounded-2xl border bg-zinc-950/90 p-3 transition-all duration-300 hover:scale-[1.01] ${
       isMe
         ? "border-purple-400 shadow-[0_0_26px_rgba(168,85,247,0.38)]"
         : position === 1
@@ -220,14 +220,14 @@ export default function LeaderboardPage() {
         : "border-white/10"
     }`}
   >
-    <div className="flex w-10 justify-center text-2xl font-black">
+    <div className="flex w-8 justify-center text-xl font-black">
       {position === 1 ? "🥇" : position === 2 ? "🥈" : position === 3 ? "🥉" : position}
     </div>
 
-    <UserAvatar username={player.username} avatarKey={player.avatar_key} size={52} />
+    <UserAvatar username={player.username} avatarKey={player.avatar_key} size={42} />
 
     <div className="min-w-0 flex-1">
-      <p className="truncate text-lg font-black leading-tight">
+      <p className="truncate text-base font-black leading-tight">
         {player.username || "Player"}
         {isMe && (
           <span className="ml-2 rounded-full bg-purple-600 px-2 py-0.5 text-[10px] font-black">
@@ -236,16 +236,16 @@ export default function LeaderboardPage() {
         )}
       </p>
 
-      <div className="mt-1 flex items-center gap-1.5">
-        <RankBadge rank={playerRank.name} size={20} intensity={0.4} />
-        <p className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+      <div className="mt-0.5 flex items-center gap-1.5">
+        <RankBadge rank={playerRank.name} size={16} intensity={0.4} />
+        <p className="text-[11px] font-bold uppercase tracking-wider text-zinc-500">
           LV {player.level ?? 1} · <span className={playerRank.color}>{playerRank.name}</span>
         </p>
       </div>
     </div>
 
     <div className="text-right">
-      <p className="text-xl font-black text-purple-300 tabular-nums">
+      <p className="text-lg font-black text-purple-300 tabular-nums">
         <AnimatedNumber value={playerRating} />
       </p>
       <p className="text-[10px] font-bold text-zinc-500">PR</p>
