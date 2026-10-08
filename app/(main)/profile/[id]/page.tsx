@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import type React from "react"
 import { useParams, useRouter } from "next/navigation"
-import {ArrowLeft,Coins,Target,Trophy,Flame,TrendingUp,TrendingDown,Shield,UserPlus,Check,X,} from "lucide-react"
+import {ArrowLeft,TrendingUp,TrendingDown,Shield,UserPlus,Check,X,Percent,CheckSquare,Gamepad2,Zap,} from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { RankBadge } from "@/components/rank-badge"
 import { getRating, getRankFromRating } from "@/lib/rank"
@@ -48,7 +48,7 @@ export default function PublicProfilePage() {
 
     const { data: predictionsData, error: predictionsError } = await supabase
       .from("predictions")
-      .select("*")
+      .select("*, matches (team_a, team_b)")
       .eq("user_id", profileId)
       .order("created_at", { ascending: false })
 
@@ -191,6 +191,14 @@ export default function PublicProfilePage() {
       ? ((wins / totalPredictions) * 100).toFixed(1)
       : "0.0"
 
+  const monthStart = new Date()
+  monthStart.setDate(1)
+  monthStart.setHours(0, 0, 0, 0)
+
+  const predictionsThisMonth = predictions.filter(
+    (prediction: any) => new Date(prediction.created_at) >= monthStart
+  ).length
+
   let currentStreak = 0
 
   for (const prediction of finishedPredictions) {
@@ -200,6 +208,38 @@ export default function PublicProfilePage() {
       break
     }
   }
+
+  const finishedThisMonth = finishedPredictions.filter(
+    (prediction: any) => new Date(prediction.created_at) >= monthStart
+  )
+  const finishedBeforeThisMonth = finishedPredictions.filter(
+    (prediction: any) => new Date(prediction.created_at) < monthStart
+  )
+
+  const accuracyThisMonth =
+    finishedThisMonth.length > 0
+      ? (finishedThisMonth.filter((p: any) => p.status === "won").length / finishedThisMonth.length) * 100
+      : null
+
+  const accuracyBeforeThisMonth =
+    finishedBeforeThisMonth.length > 0
+      ? (finishedBeforeThisMonth.filter((p: any) => p.status === "won").length / finishedBeforeThisMonth.length) * 100
+      : null
+
+  const accuracyDelta =
+    accuracyThisMonth != null && accuracyBeforeThisMonth != null
+      ? Math.round(accuracyThisMonth - accuracyBeforeThisMonth)
+      : null
+
+  const pointsDeltaThisMonth = finishedThisMonth.reduce((sum: number, p: any) => {
+    if (p.status === "won") {
+      let gain = Math.round(p.stake * p.odds)
+      if (p.gain_boost_applied) gain = Math.round(gain * 1.2)
+      return sum + gain
+    }
+    if (p.status === "lost") return sum - p.stake
+    return sum
+  }, 0)
 
   const todayStart = new Date()
   todayStart.setHours(0, 0, 0, 0)
@@ -234,18 +274,41 @@ export default function PublicProfilePage() {
           <div className="relative shrink-0">
             <div className="absolute inset-0 rounded-full bg-fuchsia-500/70 blur-2xl" />
 
-            <div className="relative flex h-24 w-24 items-center justify-center rounded-full border-4 border-purple-400/60 shadow-[0_0_45px_rgba(217,70,239,.55)]">
-              <UserAvatar
-                username={profile.username}
-                avatarKey={profile.avatar_key}
-                size={88}
-              />
+            <div
+              className="relative rounded-full p-[3px] shadow-[0_0_45px_rgba(217,70,239,.55)]"
+              style={{ background: "linear-gradient(135deg, #c084fc, #dc2626)" }}
+            >
+              <div className="flex h-24 w-24 items-center justify-center rounded-full bg-black">
+                <UserAvatar
+                  username={profile.username}
+                  avatarKey={profile.avatar_key}
+                  size={88}
+                />
+              </div>
             </div>
+
+            <div
+              className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full"
+              style={{ background: "#22c55e", border: "2px solid #0f001e" }}
+            />
           </div>
 
           <h1 className="mt-4 text-3xl font-black leading-tight">
             {profile.username || "Player"}
           </h1>
+
+          {profile.selected_title && (
+            <p
+              className="mt-1 bg-clip-text font-semibold uppercase text-transparent"
+              style={{
+                backgroundImage: "linear-gradient(to right, #c084fc, #dc2626)",
+                fontSize: "12px",
+                letterSpacing: "1.2px",
+              }}
+            >
+              {profile.selected_title}
+            </p>
+          )}
 
           <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
             {profile.club && (
@@ -307,30 +370,37 @@ export default function PublicProfilePage() {
             )}
           </div>
 
-          <div className="mt-3 flex flex-wrap items-center justify-center gap-3">
-            <div className="flex items-center gap-2">
-              <RankBadge rank={rank.name} size={32} intensity={0.6} />
-              <p className={`text-lg font-black uppercase ${rank.color}`}>
+          <div
+            className="mt-4 flex w-full items-center gap-3 rounded-2xl border p-4"
+            style={{
+              background: "linear-gradient(135deg, rgba(192,132,252,0.08), rgba(220,38,38,0.08))",
+              borderColor: "rgba(192,132,252,0.2)",
+            }}
+          >
+            <div
+              className="flex h-[76px] w-[76px] shrink-0 items-center justify-center rounded-2xl"
+              style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)" }}
+            >
+              <RankBadge rank={rank.name} size={60} intensity={0.85} />
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <p className={`truncate text-xl font-black uppercase tracking-wide ${rank.color}`}>
                 {rank.name}
+              </p>
+              <p className="mt-0.5 text-xs font-semibold" style={{ color: "rgba(255,255,255,0.45)" }}>
+                Niveau {profile.level ?? 1}
               </p>
             </div>
 
-            <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
-              <span className="text-sm font-bold text-zinc-300">
-                Niveau {profile.level ?? 1}
-              </span>
+            <div className="shrink-0 text-right">
+              <p className="text-2xl font-black leading-none text-white tabular-nums">
+                {Math.round(rating)}
+              </p>
+              <p className="mt-0.5 text-[11px] font-bold" style={{ color: "rgba(255,255,255,0.4)" }}>
+                PR
+              </p>
             </div>
-          </div>
-
-          <div className="mt-5 w-full max-w-xs rounded-2xl border border-purple-400/50 bg-purple-500/10 p-4 shadow-[0_0_20px_rgba(168,85,247,.2)]">
-            <p className="text-3xl font-black leading-none text-white">
-              {Math.round(rating)}
-              <span className="ml-2 text-lg text-purple-300">PR</span>
-            </p>
-
-            <p className="mt-1.5 text-xs font-semibold text-zinc-400">
-              Classement dans sa ligue
-            </p>
           </div>
 
           <div className="mt-4 w-full rounded-[24px] border border-white/10 bg-black/30 p-5">
@@ -365,36 +435,63 @@ export default function PublicProfilePage() {
         </div>
       </section>
 
-      <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard
-          icon={<Coins />}
-          label="Points"
-          value={profile.points ?? 0}
-          color="text-yellow-400"
-        />
-
-        <StatCard
-          icon={<Target />}
-          label="Précision"
+      <div className="mt-6 grid grid-cols-4 gap-1">
+        <MiniStatCard
+          icon={<Percent className="h-3.5 w-3.5" strokeWidth={2.5} />}
+          iconBg="rgba(192,132,252,0.15)"
+          iconColor="#c084fc"
+          accent="#c084fc"
           value={`${accuracy}%`}
-          sub={`${wins} / ${totalPredictions} pronos`}
-          color="text-purple-300"
+          label="Précision"
+          pill={
+            accuracyDelta == null
+              ? undefined
+              : accuracyDelta > 0
+              ? { text: `↑ +${accuracyDelta}%`, bg: "rgba(34,197,94,0.12)", color: "#22c55e" }
+              : accuracyDelta < 0
+              ? { text: `↓ ${accuracyDelta}%`, bg: "rgba(248,113,113,0.12)", color: "#f87171" }
+              : { text: "→ stable", bg: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.4)" }
+          }
         />
 
-        <StatCard
-          icon={<Trophy />}
-          label="Pronos gagnés"
-          value={wins}
-          sub={`Sur ${totalPredictions} pronos`}
-          color="text-green-400"
+        <MiniStatCard
+          icon={<CheckSquare className="h-3.5 w-3.5" strokeWidth={2.5} />}
+          iconBg="rgba(250,204,21,0.12)"
+          iconColor="#facc15"
+          accent="#facc15"
+          value={predictionsThisMonth}
+          label="Pronos"
+          pill={{ text: "ce mois", bg: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.3)" }}
         />
 
-        <StatCard
-          icon={<Flame />}
-          label="Série actuelle"
+        <MiniStatCard
+          icon={<Gamepad2 className="h-3.5 w-3.5" strokeWidth={2.5} />}
+          iconBg="rgba(34,211,238,0.12)"
+          iconColor="#22d3ee"
+          accent="#22d3ee"
+          value={profile.points ?? 0}
+          label="Points"
+          pill={
+            pointsDeltaThisMonth === 0
+              ? { text: "→ 0 pts", bg: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.4)" }
+              : pointsDeltaThisMonth > 0
+              ? { text: `↑ +${pointsDeltaThisMonth}`, bg: "rgba(34,197,94,0.12)", color: "#22c55e" }
+              : { text: `↓ ${pointsDeltaThisMonth}`, bg: "rgba(248,113,113,0.12)", color: "#f87171" }
+          }
+        />
+
+        <MiniStatCard
+          icon={<Zap className="h-3.5 w-3.5" strokeWidth={2.5} />}
+          iconBg="rgba(251,146,60,0.12)"
+          iconColor="#fb923c"
+          accent="#fb923c"
           value={currentStreak}
-          sub="Victoires"
-          color="text-orange-400"
+          label="Série"
+          pill={
+            currentStreak > 0
+              ? { text: "🔥 streak", bg: "rgba(251,146,60,0.12)", color: "#fb923c" }
+              : undefined
+          }
         />
       </div>
 
@@ -455,25 +552,7 @@ export default function PublicProfilePage() {
 
         <div className="overflow-hidden rounded-3xl border border-white/10 bg-zinc-950">
           {(showAllPredictions ? predictions : predictions.slice(0, 5)).map((prediction: any) => (
-            <PredictionRow
-              key={prediction.id}
-              title={prediction.selected_team ?? "Pronostic"}
-              result={
-                prediction.status === "won"
-                  ? "Victoire"
-                  : prediction.status === "lost"
-                  ? "Défaite"
-                  : "En attente"
-              }
-              pr={
-                prediction.status === "won" || prediction.status === "lost"
-                  ? prediction.rating_delta != null
-                    ? `${prediction.rating_delta > 0 ? "+" : ""}${prediction.rating_delta} PR`
-                    : "—"
-                  : "En attente"
-              }
-              positive={prediction.status === "won"}
-            />
+            <PredictionRow key={prediction.id} prediction={prediction} />
           ))}
         </div>
       </section>
@@ -482,54 +561,89 @@ export default function PublicProfilePage() {
   )
 }
 
-function StatCard({
+function MiniStatCard({
   icon,
-  label,
+  iconBg,
+  iconColor,
+  accent,
   value,
-  sub,
-  color,
+  label,
+  pill,
 }: {
   icon: React.ReactNode
-  label: string
+  iconBg: string
+  iconColor: string
+  accent: string
   value: string | number
-  sub?: string
-  color: string
+  label: string
+  pill?: { text: string; bg: string; color: string }
 }) {
   return (
-    <div className="rounded-3xl border border-white/10 bg-zinc-950 p-4">
-      <div className={`mb-3 ${color}`}>{icon}</div>
-      <p className="text-xs font-bold uppercase text-zinc-500">{label}</p>
-      <p className="mt-2 text-3xl font-black">{value}</p>
-      {sub && <p className="mt-1 text-sm font-bold text-zinc-500">{sub}</p>}
+    <div
+      className="min-w-0 rounded-[14px] px-1 py-2.5 text-center"
+      style={{
+        background: "rgba(255,255,255,0.05)",
+        border: "1px solid rgba(255,255,255,0.09)",
+      }}
+    >
+      <div
+        className="mx-auto h-0.5 w-[60%] rounded-full"
+        style={{ background: `linear-gradient(to right, transparent, ${accent}, transparent)` }}
+      />
+
+      <div
+        className="mx-auto mt-1.5 flex h-6 w-6 items-center justify-center rounded-lg"
+        style={{ background: iconBg, color: iconColor }}
+      >
+        {icon}
+      </div>
+
+      <p className="mt-1.5 truncate text-lg font-black text-white">{value}</p>
+      <p
+        className="mt-0.5 truncate text-[10px] font-bold uppercase"
+        style={{ color: "rgba(255,255,255,0.4)", letterSpacing: "1px" }}
+      >
+        {label}
+      </p>
+
+      {pill && (
+        <span
+          className="mt-1 inline-block truncate rounded-full px-1.5 py-0.5 text-[9px] font-semibold"
+          style={{ background: pill.bg, color: pill.color, maxWidth: "100%" }}
+        >
+          {pill.text}
+        </span>
+      )}
     </div>
   )
 }
 
-function PredictionRow({
-  title,
-  result,
-  pr,
-  positive = false,
-}: {
-  title: string
-  result: string
-  pr: string
-  positive?: boolean
-}) {
+function PredictionRow({ prediction }: { prediction: any }) {
+  const isWon = prediction.status === "won"
+  const isLost = prediction.status === "lost"
+
+  const matchTitle = prediction.matches
+    ? `${prediction.matches.team_a} vs ${prediction.matches.team_b}`
+    : "Pronostic"
+
+  const result = isWon ? "Victoire" : isLost ? "Défaite" : "En attente"
+
+  const pr =
+    isWon || isLost
+      ? prediction.rating_delta != null
+        ? `${prediction.rating_delta > 0 ? "+" : ""}${prediction.rating_delta} PR`
+        : "—"
+      : "En attente"
+
+  const color = isWon ? "text-green-400" : isLost ? "text-red-400" : "text-zinc-400"
+
   return (
     <div className="flex items-center justify-between border-b border-white/10 p-4 last:border-b-0">
-      <div>
-        <p className="font-bold">{title}</p>
-        <p className="text-sm text-zinc-500">Rocket League</p>
-      </div>
+      <p className="font-bold">{matchTitle}</p>
 
       <div className="text-right">
-        <p className={positive ? "font-bold text-green-400" : "font-bold text-red-400"}>
-          {result}
-        </p>
-        <p className={positive ? "text-sm font-bold text-green-400" : "text-sm font-bold text-red-400"}>
-          {pr}
-        </p>
+        <p className={`font-bold ${color}`}>{result}</p>
+        <p className={`text-sm font-bold ${color}`}>{pr}</p>
       </div>
     </div>
   )

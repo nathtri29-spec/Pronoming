@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Image from "next/image"
-import { Info, Trophy,TrendingUp,TrendingDown,ArrowRight } from "lucide-react"
+import { Info } from "lucide-react"
 import { motion } from "framer-motion"
 import { supabase } from "@/lib/supabase"
 import { RankBadge } from "@/components/rank-badge"
@@ -49,7 +49,6 @@ export default function LeaderboardPage() {
   const [tab, setTab] = useState<Tab>("league")
   const [showInfo, setShowInfo] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [todayPrDelta, setTodayPrDelta] = useState(0)
   const router = useRouter()
   const infoPanelRef = useScrollLock(showInfo)
 
@@ -60,33 +59,16 @@ export default function LeaderboardPage() {
       return
     }
 
-    if (user) fetchPlayers(user.id)
+    if (user) fetchPlayers()
   }, [user, profileLoading, router])
 
-  async function fetchPlayers(userId: string) {
+  async function fetchPlayers() {
     const { data } = await supabase
       .from("profiles")
       .select("*")
       .order("xp", { ascending: false })
 
     if (data) setPlayers(data)
-
-    const { data: predictionsData } = await supabase
-      .from("predictions")
-      .select("rating_delta, resolved_at")
-      .eq("user_id", userId)
-      .not("resolved_at", "is", null)
-
-    if (predictionsData) {
-      const todayStart = new Date()
-      todayStart.setHours(0, 0, 0, 0)
-
-      const delta = predictionsData
-        .filter((prediction) => new Date(prediction.resolved_at) >= todayStart)
-        .reduce((sum, prediction) => sum + (prediction.rating_delta ?? 0), 0)
-
-      setTodayPrDelta(delta)
-    }
 
     setLoading(false)
   }
@@ -104,9 +86,6 @@ export default function LeaderboardPage() {
     .slice(0, 50)
 
   const displayedPlayers = tab === "league" ? leaguePlayers : globalPlayers
-
-  const myPosition =
-    leaguePlayers.findIndex((player) => player.id === currentUserId) + 1
 
   const progressPercent =
     currentRank.nextRating
@@ -135,115 +114,43 @@ export default function LeaderboardPage() {
     </p>
 
     <section
-      className={`relative mt-6 overflow-hidden rounded-[28px] border ${currentRank.border} bg-gradient-to-b from-zinc-900 via-zinc-950 to-black p-5 text-center ${currentRank.glow}`}
+      className={`relative mt-6 overflow-hidden rounded-2xl border ${currentRank.border} bg-gradient-to-b from-zinc-900 via-zinc-950 to-black p-3 ${currentRank.glow}`}
     >
-      <div className="absolute -left-24 top-10 h-64 w-64 rounded-full bg-purple-600/15 blur-3xl" />
-      <div className="absolute -right-20 bottom-0 h-56 w-56 rounded-full bg-fuchsia-500/15 blur-3xl" />
+      <div className="absolute -left-10 -top-10 h-28 w-28 rounded-full bg-purple-600/15 blur-3xl" />
+      <div className="absolute -right-10 bottom-0 h-24 w-24 rounded-full bg-fuchsia-500/15 blur-3xl" />
 
-      <div className="relative z-10">
-        <p className="text-xs font-bold uppercase tracking-[0.3em] text-zinc-500">
-          Ma Ligue
-        </p>
+      <div className="relative z-10 flex items-center gap-3">
+        <RankBadge rank={currentRank.name} size={56} />
 
-        <div className="mt-4 flex justify-center">
-          <RankBadge rank={currentRank.name} size={92} />
-        </div>
-
-        <h2 className={`mt-4 text-3xl font-black tracking-[0.15em] uppercase ${currentRank.color}`}>
-          {currentRank.name}
-        </h2>
-
-        <p className="mt-2 text-2xl font-black text-white tabular-nums">
-          <AnimatedNumber value={currentRating} /> PR
-        </p>
-
-        <p className="mt-1 text-xs font-bold text-zinc-500">
-          {currentRank.nextRating
-            ? `Encore ${Math.max(0, currentRank.nextRating - currentRating)} PR avant ${currentRank.next}`
-            : "Tu es au rang maximum"}
-        </p>
-
-        <div className="mt-4 grid grid-cols-2 gap-2.5">
-          <div className="group relative overflow-hidden rounded-2xl border border-purple-400/30 bg-white/5 p-3 shadow-[0_0_20px_rgba(168,85,247,0.12)] transition-all duration-300 hover:border-purple-400/70 hover:shadow-[0_0_28px_rgba(168,85,247,0.28)]">
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-            <div className="relative z-10 flex flex-col items-center">
-              <div className="mb-1.5 flex h-8 w-8 items-center justify-center rounded-xl border border-purple-400/40 bg-purple-500/10 text-purple-300 shadow-[0_0_18px_rgba(168,85,247,0.25)]">
-                <Trophy className="h-4 w-4" />
-              </div>
-              <p className="text-[9px] font-bold uppercase tracking-wider text-zinc-500">
-                Position
-              </p>
-              <p className="mt-0.5 text-base font-black text-white">
-                #{myPosition || "-"} / {leaguePlayers.length || 0}
-              </p>
-            </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-2">
+            <p className={`truncate text-lg font-black uppercase tracking-wide ${currentRank.color}`}>
+              {currentRank.name}
+            </p>
+            <p className="shrink-0 text-base font-black text-white tabular-nums">
+              <AnimatedNumber value={currentRating} />
+              <span className="ml-1 text-xs text-zinc-500">PR</span>
+            </p>
           </div>
 
-          <button
-            onClick={() => router.push("/profile/stats")}
-            className={`group relative overflow-hidden rounded-2xl border bg-white/5 p-3 text-left shadow-[0_0_20px_rgba(74,222,128,0.12)] transition-all duration-300 ${
-              todayPrDelta > 0
-                ? "border-green-400/30 hover:border-green-400/70 hover:shadow-[0_0_28px_rgba(74,222,128,0.28)]"
-                : todayPrDelta < 0
-                ? "border-red-400/30 hover:border-red-400/70 hover:shadow-[0_0_28px_rgba(248,113,113,0.28)]"
-                : "border-white/10"
-            }`}
-          >
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-            <div className="relative z-10 flex flex-col items-center">
-              <div
-                className={`mb-1.5 flex h-8 w-8 items-center justify-center rounded-xl border shadow-[0_0_18px_rgba(74,222,128,0.25)] ${
-                  todayPrDelta > 0
-                    ? "border-green-400/40 bg-green-500/10 text-green-300"
-                    : todayPrDelta < 0
-                    ? "border-red-400/40 bg-red-500/10 text-red-300"
-                    : "border-white/10 bg-white/5 text-zinc-400"
-                }`}
-              >
-                {todayPrDelta > 0 ? (
-                  <TrendingUp className="h-4 w-4" />
-                ) : todayPrDelta < 0 ? (
-                  <TrendingDown className="h-4 w-4" />
-                ) : (
-                  <ArrowRight className="h-4 w-4" />
-                )}
-              </div>
-              <p className="text-[9px] font-bold uppercase tracking-wider text-zinc-500">
-                Tendance
-              </p>
-              <p
-                className={`mt-0.5 text-base font-black ${
-                  todayPrDelta > 0 ? "text-green-400" : todayPrDelta < 0 ? "text-red-400" : "text-zinc-400"
-                }`}
-              >
-                {todayPrDelta > 0 ? "+" : ""}
-                {todayPrDelta} PR
-              </p>
-              <p className="text-[9px] font-bold text-zinc-500">
-                aujourd’hui
-              </p>
-            </div>
-          </button>
-        </div>
-
-        <div className="mt-4">
-          <div className="mb-2 flex justify-between text-xs font-bold text-zinc-500">
-            <span>{currentRank.name}</span>
-            <span>{currentRank.next || "Legend"}</span>
-          </div>
-
-          <div className="relative h-3 overflow-hidden rounded-full bg-zinc-800">
+          <div className="relative mt-1.5 h-2 overflow-hidden rounded-full bg-zinc-800">
             <div
-              className="h-3 rounded-full bg-gradient-to-r from-purple-600 via-fuchsia-400 to-red-500 shadow-[0_0_18px_rgba(217,70,239,0.6)]"
+              className="h-2 rounded-full bg-gradient-to-r from-purple-600 via-fuchsia-400 to-red-500 shadow-[0_0_12px_rgba(217,70,239,0.6)]"
               style={{ width: `${Math.min(progressPercent, 100)}%` }}
             />
             <div className="absolute inset-0 animate-[shine_2.5s_linear_infinite] bg-gradient-to-r from-transparent via-white/30 to-transparent" />
           </div>
+
+          <p className="mt-1 truncate text-[10px] font-bold text-zinc-500">
+            {currentRank.nextRating
+              ? `Encore ${Math.max(0, currentRank.nextRating - currentRating)} PR avant ${currentRank.next}`
+              : "Rang maximum atteint"}
+          </p>
         </div>
       </div>
     </section>
 
-    <div className="mt-6 grid grid-cols-2 overflow-hidden rounded-2xl border border-white/10 bg-zinc-950">
+    <div className="mt-4 grid grid-cols-2 overflow-hidden rounded-2xl border border-white/10 bg-zinc-950">
       <button
         onClick={() => setTab("league")}
         className={`py-3 text-sm font-extrabold ${
