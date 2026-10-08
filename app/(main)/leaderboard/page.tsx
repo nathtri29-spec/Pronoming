@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Image from "next/image"
-import { Info } from "lucide-react"
+import { Info, BarChart2 } from "lucide-react"
 import { motion } from "framer-motion"
 import { supabase } from "@/lib/supabase"
 import { RankBadge } from "@/components/rank-badge"
@@ -100,18 +100,30 @@ export default function LeaderboardPage() {
 
   return (
   <div className="min-h-screen bg-black px-4 pb-24 pt-6 text-white">
-    <h1
-      className="inline-block bg-clip-text text-3xl font-extrabold text-transparent"
-      style={{
-        backgroundImage: "linear-gradient(to right, #c084fc, #dc2626 80%)",
-      }}
-    >
-      CLASSEMENT
-    </h1>
+    <div className="flex items-start justify-between gap-3">
+      <div>
+        <h1
+          className="inline-block bg-clip-text text-3xl font-extrabold text-transparent"
+          style={{
+            backgroundImage: "linear-gradient(to right, #c084fc, #dc2626 80%)",
+          }}
+        >
+          CLASSEMENT
+        </h1>
 
-    <p className="mt-1 text-sm text-zinc-500">
-      Grimpe dans ta ligue et vise le Top 50 global
-    </p>
+        <p className="mt-1 text-sm text-zinc-500">
+          Grimpe dans ta ligue et vise le Top 50 global
+        </p>
+      </div>
+
+      <button
+        onClick={() => router.push("/profile/stats")}
+        className="mt-1.5 flex shrink-0 items-center gap-1.5 rounded-full border border-purple-400/40 bg-purple-500/10 px-3 py-1.5 text-xs font-bold text-purple-300"
+      >
+        <BarChart2 className="h-3.5 w-3.5" />
+        Stats
+      </button>
+    </div>
 
     <section
       className={`relative mt-6 overflow-hidden rounded-2xl border ${currentRank.border} bg-gradient-to-b from-zinc-900 via-zinc-950 to-black p-3 ${currentRank.glow}`}
