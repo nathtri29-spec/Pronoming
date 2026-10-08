@@ -42,7 +42,6 @@ export default function StatsPage() {
   const [hasData, setHasData] = useState(false)
   const [chartDays, setChartDays] = useState<{ label: string; delta: number }[]>([])
   const [weekTotal, setWeekTotal] = useState(0)
-  const [monthTotal, setMonthTotal] = useState(0)
   const [best, setBest] = useState<any>(null)
   const [worst, setWorst] = useState<any>(null)
   const [placesGained, setPlacesGained] = useState<number | null>(null)
@@ -92,10 +91,8 @@ export default function StatsPage() {
 
     const now = Date.now()
     const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000
-    const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000
 
     let week = 0
-    let month = 0
     let bestPred: any = null
     let worstPred: any = null
 
@@ -104,14 +101,12 @@ export default function StatsPage() {
 
       const resolvedTime = new Date(p.resolved_at).getTime()
       if (resolvedTime >= sevenDaysAgo) week += p.rating_delta
-      if (resolvedTime >= thirtyDaysAgo) month += p.rating_delta
 
       if (!bestPred || p.rating_delta > bestPred.rating_delta) bestPred = p
       if (!worstPred || p.rating_delta < worstPred.rating_delta) worstPred = p
     }
 
     setWeekTotal(week)
-    setMonthTotal(month)
     setBest(bestPred)
     setWorst(worstPred)
 
@@ -161,7 +156,7 @@ export default function StatsPage() {
   const maxAbsDelta = Math.max(1, ...chartDays.map((d) => Math.abs(d.delta)))
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#17091f] via-[#0b0b12] to-black px-4 pb-24 pt-6 text-white">
+    <div className="min-h-screen px-4 pb-24 pt-6 text-white" style={{ background: "#0f001e" }}>
       <button
         onClick={() => router.back()}
         className="mb-4 flex items-center gap-2 text-sm font-bold text-zinc-300"
@@ -172,25 +167,29 @@ export default function StatsPage() {
 
       <h1
         className="inline-block bg-clip-text text-3xl font-extrabold text-transparent"
-        style={{ backgroundImage: "linear-gradient(to right, #c084fc, #dc2626 80%)" }}
+        style={{ backgroundImage: "linear-gradient(90deg, #c084fc, #dc2626)" }}
       >
         STATISTIQUES
       </h1>
 
-      <p className="mt-1 text-sm text-zinc-500">
+      <p className="mt-1 text-sm" style={{ color: "rgba(255,255,255,0.4)" }}>
         Ta progression PR en détail
       </p>
 
       {placesGained !== null && (
         <div
-          className={`mt-6 rounded-2xl border p-5 text-center ${
-            placesGained > 0
-              ? "border-green-400/30 bg-green-500/5"
-              : placesGained < 0
-              ? "border-red-400/30 bg-red-500/5"
-              : "border-white/10 bg-white/5"
-          }`}
+          className="relative mt-6 overflow-hidden p-5 text-center"
+          style={{
+            background: "rgba(255,255,255,0.04)",
+            border: "1px solid rgba(192,132,252,0.18)",
+            borderRadius: "14px",
+          }}
         >
+          <div
+            className="absolute inset-x-0 top-0 h-0.5"
+            style={{ background: "linear-gradient(90deg, transparent, #c084fc, transparent)" }}
+          />
+
           <div className="flex items-center justify-center gap-2">
             {placesGained > 0 ? (
               <TrendingUp className="h-6 w-6 text-green-400" />
@@ -200,7 +199,7 @@ export default function StatsPage() {
               <ArrowRight className="h-6 w-6 text-white" />
             )}
             <p
-              className={`text-3xl font-black ${
+              className={`text-[42px] font-black leading-none ${
                 placesGained > 0 ? "text-green-400" : placesGained < 0 ? "text-red-400" : "text-white"
               }`}
             >
@@ -208,43 +207,73 @@ export default function StatsPage() {
               {placesGained}
             </p>
           </div>
-          <p className="mt-1 text-xs font-bold uppercase tracking-wider text-zinc-500">
-            place{Math.abs(placesGained) > 1 ? "s" : ""} au classement global sur {CHART_DAYS} jours
-          </p>
+
+          <div className="mt-2 flex items-center justify-center gap-1.5">
+            <div
+              className="flex h-5 w-5 items-center justify-center rounded-full"
+              style={{ background: "rgba(192,132,252,0.15)" }}
+            >
+              <CalendarDays className="h-3 w-3" style={{ color: "#c084fc" }} />
+            </div>
+            <p className="text-xs font-bold uppercase tracking-wider" style={{ color: "rgba(255,255,255,0.4)" }}>
+              place{Math.abs(placesGained) > 1 ? "s" : ""} au classement global sur {CHART_DAYS} jours
+            </p>
+          </div>
         </div>
       )}
 
       {hasData ? (
-        <div className="mt-6 rounded-2xl border border-white/10 bg-zinc-950/90 p-4">
-          <p className="mb-4 text-xs font-bold uppercase tracking-wider text-zinc-500">
+        <div
+          className="mt-6 p-4"
+          style={{
+            background: "rgba(255,255,255,0.04)",
+            border: "1px solid rgba(192,132,252,0.18)",
+            borderRadius: "14px",
+          }}
+        >
+          <p className="mb-4 text-xs font-bold uppercase tracking-wider" style={{ color: "rgba(255,255,255,0.4)" }}>
             PR par jour · {CHART_DAYS} derniers jours
           </p>
 
           <div className="flex items-stretch gap-1">
-            {chartDays.map((day, i) => (
-              <div key={i} className="flex flex-1 flex-col items-center">
-                <div className="flex h-16 w-full flex-col justify-end">
-                  {day.delta > 0 && (
-                    <div
-                      className="w-full rounded-t bg-gradient-to-t from-green-500 to-green-400"
-                      style={{ height: `${(day.delta / maxAbsDelta) * 100}%` }}
-                    />
+            {chartDays.map((day, i) => {
+              const isLast = i === chartDays.length - 1
+
+              return (
+                <div key={i} className="flex flex-1 flex-col items-center">
+                  <div className="flex h-16 w-full flex-col justify-end">
+                    {day.delta > 0 && (
+                      <div
+                        className="w-full rounded-t"
+                        style={{
+                          height: `${(day.delta / maxAbsDelta) * 100}%`,
+                          background: isLast ? "linear-gradient(180deg, #c084fc, #7c3aed)" : "rgba(124,58,237,0.25)",
+                          boxShadow: isLast ? "0 0 8px rgba(192,132,252,0.4)" : undefined,
+                        }}
+                      />
+                    )}
+                  </div>
+                  <div className="h-px w-full" style={{ background: "rgba(255,255,255,0.15)" }} />
+                  <div className="flex h-16 w-full flex-col">
+                    {day.delta < 0 && (
+                      <div
+                        className="w-full rounded-b"
+                        style={{
+                          height: `${(Math.abs(day.delta) / maxAbsDelta) * 100}%`,
+                          background: isLast ? "linear-gradient(180deg, #c084fc, #7c3aed)" : "rgba(124,58,237,0.25)",
+                          boxShadow: isLast ? "0 0 8px rgba(192,132,252,0.4)" : undefined,
+                        }}
+                      />
+                    )}
+                  </div>
+                  {i % 3 === 0 && (
+                    <p className="mt-1 text-[8px] font-bold" style={{ color: "rgba(255,255,255,0.25)" }}>
+                      {day.label}
+                    </p>
                   )}
                 </div>
-                <div className="h-px w-full bg-white/15" />
-                <div className="flex h-16 w-full flex-col">
-                  {day.delta < 0 && (
-                    <div
-                      className="w-full rounded-b bg-gradient-to-b from-red-500 to-red-400"
-                      style={{ height: `${(Math.abs(day.delta) / maxAbsDelta) * 100}%` }}
-                    />
-                  )}
-                </div>
-                {i % 3 === 0 && (
-                  <p className="mt-1 text-[8px] font-bold text-zinc-600">{day.label}</p>
-                )}
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       ) : (
@@ -302,42 +331,87 @@ export default function StatsPage() {
       )}
 
       <motion.div variants={gridVariants} initial="hidden" animate="show" className="mt-6 grid grid-cols-2 gap-3">
-        <motion.div variants={itemVariants} className="rounded-2xl border border-white/10 bg-zinc-950/90 p-4">
-          <CalendarDays className="mb-2 h-5 w-5 text-purple-300" strokeWidth={2.2} />
-          <p className="text-xs font-bold uppercase tracking-wider text-zinc-500">7 jours</p>
-          <p className={`mt-1 text-2xl font-black ${weekTotal > 0 ? "text-green-400" : weekTotal < 0 ? "text-red-400" : "text-white"}`}>
+        <motion.div
+          variants={itemVariants}
+          className="relative col-span-2 overflow-hidden p-4"
+          style={{
+            background: "rgba(255,255,255,0.04)",
+            border: "1px solid rgba(192,132,252,0.18)",
+            borderRadius: "14px",
+          }}
+        >
+          <div
+            className="absolute inset-x-0 top-0 h-0.5"
+            style={{
+              background:
+                weekTotal > 0
+                  ? "linear-gradient(90deg, transparent, #22c55e, transparent)"
+                  : weekTotal < 0
+                  ? "linear-gradient(90deg, transparent, #dc2626, transparent)"
+                  : "linear-gradient(90deg, transparent, #c084fc, transparent)",
+            }}
+          />
+          <CalendarDays
+            className="mb-2 h-5 w-5"
+            style={{ color: weekTotal > 0 ? "#22c55e" : weekTotal < 0 ? "#f87171" : "#c084fc" }}
+            strokeWidth={2.2}
+          />
+          <p className="text-xs font-bold uppercase tracking-wider" style={{ color: "rgba(255,255,255,0.4)" }}>
+            7 jours
+          </p>
+          <p
+            className="mt-1 text-2xl font-black"
+            style={{ color: weekTotal > 0 ? "#22c55e" : weekTotal < 0 ? "#f87171" : "#ffffff" }}
+          >
             {weekTotal > 0 ? "+" : ""}
             {weekTotal} PR
           </p>
         </motion.div>
 
-        <motion.div variants={itemVariants} className="rounded-2xl border border-white/10 bg-zinc-950/90 p-4">
-          <CalendarDays className="mb-2 h-5 w-5 text-purple-300" strokeWidth={2.2} />
-          <p className="text-xs font-bold uppercase tracking-wider text-zinc-500">30 jours</p>
-          <p className={`mt-1 text-2xl font-black ${monthTotal > 0 ? "text-green-400" : monthTotal < 0 ? "text-red-400" : "text-white"}`}>
-            {monthTotal > 0 ? "+" : ""}
-            {monthTotal} PR
-          </p>
-        </motion.div>
-
         {best && (
-          <motion.div variants={itemVariants} className="col-span-2 rounded-2xl border border-green-400/30 bg-green-500/5 p-4">
+          <motion.div
+            variants={itemVariants}
+            className="relative col-span-2 overflow-hidden p-4"
+            style={{
+              background: "linear-gradient(135deg, rgba(192,132,252,0.1), rgba(220,38,38,0.08))",
+              border: "1px solid rgba(192,132,252,0.25)",
+              borderRadius: "14px",
+            }}
+          >
+            <div
+              className="absolute inset-x-0 top-0 h-0.5"
+              style={{ background: "linear-gradient(90deg, #c084fc, #dc2626)" }}
+            />
             <div className="flex items-center gap-2">
-              <Trophy className="h-5 w-5 text-green-400" strokeWidth={2.2} />
-              <p className="text-xs font-bold uppercase tracking-wider text-green-300">Meilleur prono</p>
+              <Trophy className="h-5 w-5" style={{ color: "#c084fc" }} strokeWidth={2.2} />
+              <p className="text-xs font-bold uppercase tracking-wider" style={{ color: "#c084fc" }}>
+                Meilleur prono
+              </p>
             </div>
             <p className="mt-2 truncate text-sm font-bold text-white">
               {best.matches?.team_a} vs {best.matches?.team_b}
             </p>
-            <p className="text-2xl font-black text-green-400">+{best.rating_delta} PR</p>
+            <p className="text-2xl font-black text-white">+{best.rating_delta} PR</p>
           </motion.div>
         )}
 
         {worst && worst.rating_delta < 0 && (
-          <motion.div variants={itemVariants} className="col-span-2 rounded-2xl border border-red-400/30 bg-red-500/5 p-4">
+          <motion.div
+            variants={itemVariants}
+            className="relative col-span-2 overflow-hidden p-4"
+            style={{
+              background: "linear-gradient(135deg, rgba(220,38,38,0.1), rgba(192,132,252,0.08))",
+              border: "1px solid rgba(220,38,38,0.25)",
+              borderRadius: "14px",
+            }}
+          >
+            <div
+              className="absolute inset-x-0 top-0 h-0.5"
+              style={{ background: "linear-gradient(90deg, transparent, #dc2626, transparent)" }}
+            />
             <div className="flex items-center gap-2">
               <Skull className="h-5 w-5 text-red-400" strokeWidth={2.2} />
-              <p className="text-xs font-bold uppercase tracking-wider text-red-300">Pire prono</p>
+              <p className="text-xs font-bold uppercase tracking-wider text-red-400">Pire prono</p>
             </div>
             <p className="mt-2 truncate text-sm font-bold text-white">
               {worst.matches?.team_a} vs {worst.matches?.team_b}

@@ -262,7 +262,7 @@ setTimeout(() => {
 
   <div className="mt-4">
           <div className="mb-1 flex justify-between text-xs uppercase tracking-wider text-zinc-500">
-            <span>Saison {seasonNumber ?? "-"} · LV {profile?.level ?? 1}</span>
+            <span className="font-bold text-purple-400">Saison {seasonNumber ?? "-"} · LV {profile?.level ?? 1}</span>
             <span className="tabular-nums">
               <AnimatedNumber value={profile?.xp ?? 0} /> XP
             </span>
@@ -439,7 +439,7 @@ const startsSoon = !isLive && date.getTime() - Date.now() < 2 * 60 * 60 * 1000
                     disabled={alreadyPredicted}
                     whileTap={alreadyPredicted ? undefined : { scale: 0.92 }}
                     transition={{ type: "spring", stiffness: 400, damping: 17 }}
-                    className="rounded-xl border border-white/10 bg-black/40 p-3 text-center transition-colors duration-200 hover:border-purple-500 hover:bg-purple-900/20 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-white/10 disabled:hover:bg-black/40"
+                    className="rounded-xl border border-zinc-500/40 bg-black/40 p-3 text-center transition-colors duration-200 hover:border-purple-500 hover:bg-purple-900/20 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-zinc-500/40 disabled:hover:bg-black/40"
                   >
                     <p className="bg-gradient-to-r from-purple-400 to-red-500 bg-clip-text text-xl font-extrabold text-transparent">
   {Number(match.odds_team_a).toFixed(2)}
@@ -457,7 +457,7 @@ const startsSoon = !isLive && date.getTime() - Date.now() < 2 * 60 * 60 * 1000
                     disabled={alreadyPredicted}
                     whileTap={alreadyPredicted ? undefined : { scale: 0.92 }}
                     transition={{ type: "spring", stiffness: 400, damping: 17 }}
-                    className="rounded-xl border border-white/10 bg-black/40 p-3 text-center transition-colors duration-200 hover:border-red-500 hover:bg-red-900/20 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-white/10 disabled:hover:bg-black/40"
+                    className="rounded-xl border border-zinc-500/40 bg-black/40 p-3 text-center transition-colors duration-200 hover:border-red-500 hover:bg-red-900/20 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-zinc-500/40 disabled:hover:bg-black/40"
                   >
                     <p className="bg-gradient-to-r from-purple-400 to-red-500 bg-clip-text text-xl font-extrabold text-transparent">
   {Number(match.odds_team_b).toFixed(2)}
