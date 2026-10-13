@@ -104,9 +104,9 @@ export default function PersonnalisationPage() {
       </button>
 
       <div className="flex items-start justify-between gap-3">
-        <div>
+        <div className="min-w-0">
           <h1
-            className="inline-block bg-clip-text text-3xl font-extrabold text-transparent"
+            className="inline-block bg-clip-text text-xl font-extrabold text-transparent"
             style={{ backgroundImage: "linear-gradient(to right, #c084fc, #dc2626 80%)" }}
           >
             PERSONNALISATION
@@ -117,7 +117,7 @@ export default function PersonnalisationPage() {
           </p>
         </div>
 
-        <div className="flex shrink-0 flex-col items-center gap-1.5 pt-1">
+        <div className="mr-3 flex shrink-0 flex-col items-center gap-1.5 pt-1">
           <motion.div
             key={profile.avatar_key}
             initial={{ opacity: 0, scale: 0.7 }}

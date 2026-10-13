@@ -335,6 +335,9 @@ grant execute on function public.place_prediction(bigint, text, integer, boolean
 
 drop function if exists public.resolve_match(uuid, text);
 
+alter table public.predictions
+  add column if not exists xp_delta integer;
+
 create or replace function public.resolve_match(
   p_match_id bigint,
   p_winner text
@@ -427,7 +430,7 @@ begin
         v_rating_gain := v_rating_gain * 2;
       end if;
 
-      update public.predictions set status = 'won', rating_delta = v_rating_gain, resolved_at = now() where id = v_pred.id;
+      update public.predictions set status = 'won', rating_delta = v_rating_gain, xp_delta = v_xp_gain, resolved_at = now() where id = v_pred.id;
 
       v_new_xp := v_current_xp + v_xp_gain;
       v_new_level := v_current_level;
@@ -500,7 +503,7 @@ begin
 
       v_insurance_refund := case when v_pred.insurance_applied then round(v_pred.stake * 0.5) else 0 end;
 
-      update public.predictions set status = 'lost', rating_delta = -v_rating_loss, resolved_at = now() where id = v_pred.id;
+      update public.predictions set status = 'lost', rating_delta = -v_rating_loss, xp_delta = v_xp_gain, resolved_at = now() where id = v_pred.id;
 
       update public.profiles
         set xp = v_new_xp,
@@ -1413,8 +1416,23 @@ begin
 exception when duplicate_object then null;
 end $$;
 
+alter table public.club_messages
+  add column if not exists kind text not null default 'text';
+
+alter table public.club_messages
+  add column if not exists match_id bigint references public.matches(id) on delete set null;
+
+alter table public.club_messages
+  drop constraint if exists club_messages_kind_check;
+
+alter table public.club_messages
+  add constraint club_messages_kind_check check (kind in ('text', 'match_share'));
+
+drop function if exists public.send_club_message(text);
+
 create or replace function public.send_club_message(
-  p_content text
+  p_content text,
+  p_match_id bigint default null
 )
 returns public.club_messages
 language plpgsql
@@ -1424,14 +1442,19 @@ as $$
 declare
   v_user_id uuid := auth.uid();
   v_club_id bigint;
-  v_content text := trim(p_content);
+  v_content text := trim(coalesce(p_content, ''));
+  v_kind text := case when p_match_id is null then 'text' else 'match_share' end;
   v_row public.club_messages%rowtype;
 begin
   if v_user_id is null then
     raise exception 'Non authentifie';
   end if;
 
-  if v_content = '' or length(v_content) > 500 then
+  if length(v_content) > 500 then
+    raise exception 'Message invalide (500 caracteres max)';
+  end if;
+
+  if v_kind = 'text' and v_content = '' then
     raise exception 'Message invalide (1 a 500 caracteres)';
   end if;
 
@@ -1440,15 +1463,19 @@ begin
     raise exception 'Tu n''es dans aucun club';
   end if;
 
-  insert into public.club_messages (club_id, user_id, content)
-  values (v_club_id, v_user_id, v_content)
+  if p_match_id is not null and not exists (select 1 from public.matches where id = p_match_id) then
+    raise exception 'Match introuvable';
+  end if;
+
+  insert into public.club_messages (club_id, user_id, content, kind, match_id)
+  values (v_club_id, v_user_id, v_content, v_kind, p_match_id)
   returning * into v_row;
 
   return v_row;
 end;
 $$;
 
-grant execute on function public.send_club_message(text) to authenticated;
+grant execute on function public.send_club_message(text, bigint) to authenticated;
 alter table public.clubs
   add column if not exists description text;
 
@@ -1483,3 +1510,6 @@ end;
 $$;
 
 grant execute on function public.update_club_description(text) to authenticated;
+
+alter table public.matches
+  add column if not exists game text not null default 'Rocket League';

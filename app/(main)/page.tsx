@@ -7,7 +7,7 @@ import { XpBar } from "@/components/xp-bar"
 import { RewardPopup } from "@/components/reward-popup"
 import { HomeSkeleton } from "@/components/home-skeleton"
 import { useRouter } from "next/navigation"
-import { FileText, Gamepad2, Check, Flame } from "lucide-react"
+import { FileText, Gamepad2, Check, Flame, ChevronDown } from "lucide-react"
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion"
 import { getRatingMultiplier } from "@/lib/rank"
 import { useScrollLock } from "@/lib/use-scroll-lock"
@@ -16,6 +16,7 @@ import { AnimatedNumber } from "@/components/animated-number"
 import { getMaxStake } from "@/lib/economy"
 import { useToast } from "@/components/toast-provider"
 import { useProfile } from "@/components/profile-provider"
+import { GAMES } from "@/lib/games"
 
 const backdropVariants = {
   hidden: { opacity: 0 },
@@ -59,6 +60,8 @@ export default function Home() {
   const [predictionSuccess, setPredictionSuccess] = useState<string | null>(null)
   const [activeBoosts, setActiveBoosts] = useState<any[]>([])
   const [selectedBoosts, setSelectedBoosts] = useState<Set<BoostKey>>(new Set())
+  const [selectedGame, setSelectedGame] = useState<string | null>(null)
+  const [showGameMenu, setShowGameMenu] = useState(false)
   const sheetPanelRef = useScrollLock(!!selectedMatch)
   const reduceMotion = useReducedMotion()
 
@@ -223,6 +226,10 @@ setTimeout(() => {
 
   const maxStake = profile ? getMaxStake(profile.points, profile.level) : 0
 
+  const displayedMatches = selectedGame
+    ? matches.filter((m) => m.game === selectedGame)
+    : matches
+
   if (profileLoading || loading) {
   return <HomeSkeleton />
 }
@@ -279,14 +286,55 @@ setTimeout(() => {
             EN DIRECT & À VENIR
           </h2>
 
-          <span className="text-xs font-bold text-purple-400">
-            ROCKET LEAGUE
-          </span>
+          <div className="relative">
+            <button
+              onClick={() => setShowGameMenu((v) => !v)}
+              className="flex items-center gap-1 text-xs font-bold text-purple-400"
+            >
+              {(selectedGame ?? "Tous les jeux").toUpperCase()}
+              <ChevronDown className="h-3.5 w-3.5" />
+            </button>
+
+            {showGameMenu && (
+              <>
+                <div className="fixed inset-0 z-20" onClick={() => setShowGameMenu(false)} />
+
+                <div className="absolute right-0 top-full z-30 mt-2 w-48 overflow-hidden rounded-xl border border-white/10 bg-zinc-950 shadow-xl">
+                  <button
+                    onClick={() => {
+                      setSelectedGame(null)
+                      setShowGameMenu(false)
+                    }}
+                    className={`block w-full px-4 py-2.5 text-left text-sm font-bold ${
+                      selectedGame === null ? "bg-purple-600 text-white" : "text-zinc-300"
+                    }`}
+                  >
+                    Tous les jeux
+                  </button>
+
+                  {GAMES.map((game) => (
+                    <button
+                      key={game}
+                      onClick={() => {
+                        setSelectedGame(game)
+                        setShowGameMenu(false)
+                      }}
+                      className={`block w-full px-4 py-2.5 text-left text-sm font-bold ${
+                        selectedGame === game ? "bg-purple-600 text-white" : "text-zinc-300"
+                      }`}
+                    >
+                      {game}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
         </div>
 
         <motion.div variants={gridVariants} initial="hidden" animate="show" className="space-y-4">
 
-          {matches.length === 0 && (
+          {displayedMatches.length === 0 && (
   <div className="mt-12 flex flex-col items-center pt-10">
     <div className="relative mb-5">
       <div
@@ -340,7 +388,7 @@ setTimeout(() => {
   </div>
 )}
 
-          {matches.map((match) => {
+          {displayedMatches.map((match) => {
             const alreadyPredicted = predictions.some(
               (p) => p.match_id === match.id
             )
@@ -372,7 +420,7 @@ const startsSoon = !isLive && date.getTime() - Date.now() < 2 * 60 * 60 * 1000
 
                 <div className="mb-4 flex items-start justify-between">
   <span className="text-xs font-bold uppercase tracking-widest text-zinc-500">
-    {match.Tournament || "RLCS"}
+    {match.game ?? "Rocket League"} · {match.Tournament || "RLCS"}
   </span>
 
   <div className="text-right">

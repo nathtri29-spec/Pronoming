@@ -5,26 +5,22 @@ import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
 import { supabase } from "@/lib/supabase"
 import { UserAvatar } from "@/components/user-avatar"
-import { RankBadge } from "@/components/rank-badge"
 import { AnimatedNumber } from "@/components/animated-number"
-import { getRating, getRankFromRating } from "@/lib/rank"
 import { useToast } from "@/components/toast-provider"
 import { ClubsSkeleton } from "@/components/clubs-skeleton"
 import { useProfile } from "@/components/profile-provider"
+import { clubInitials, clubColor } from "@/lib/club-colors"
 import {
-  Crown,
-  Users,
-  Check,
-  X,
   Shield,
   Lock,
   Globe,
   UserPlus,
-  LogOut,
+  Plus,
   Send,
   MessageCircle,
-  AlertTriangle,
-  Pencil,
+  ChevronRight,
+  Swords,
+  Users,
 } from "lucide-react"
 
 const gridVariants = {
@@ -61,11 +57,7 @@ export default function ClubsPage() {
   const [tab, setTab] = useState<ClubTab>("club")
 
   const [myClub, setMyClub] = useState<any>(null)
-  const [myRole, setMyRole] = useState<"leader" | "member" | null>(null)
   const [members, setMembers] = useState<any[]>([])
-  const [pendingRequests, setPendingRequests] = useState<any[]>([])
-  const [editingDescription, setEditingDescription] = useState(false)
-  const [descriptionDraft, setDescriptionDraft] = useState("")
 
   const [allClubs, setAllClubs] = useState<any[]>([])
   const [powerByClub, setPowerByClub] = useState<Record<number, { total: number; count: number }>>({})
@@ -80,6 +72,11 @@ export default function ClubsPage() {
   const [newMessage, setNewMessage] = useState("")
   const [sendingMessage, setSendingMessage] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  const [matchesById, setMatchesById] = useState<Record<number, any>>({})
+  const [shareableMatches, setShareableMatches] = useState<any[]>([])
+  const [myPredictionsByMatch, setMyPredictionsByMatch] = useState<Record<number, any>>({})
+  const [showMatchPicker, setShowMatchPicker] = useState(false)
 
   useEffect(() => {
     if (!profileLoading && !user) {
@@ -128,13 +125,14 @@ export default function ClubsPage() {
     setMessages(data || [])
   }
 
-  async function sendMessage() {
-    if (!newMessage.trim()) return
+  async function sendMessage(matchId?: number) {
+    if (!matchId && !newMessage.trim()) return
 
     setSendingMessage(true)
 
     const { error } = await supabase.rpc("send_club_message", {
-      p_content: newMessage.trim(),
+      p_content: matchId ? "" : newMessage.trim(),
+      p_match_id: matchId ?? null,
     })
 
     setSendingMessage(false)
@@ -145,10 +143,10 @@ export default function ClubsPage() {
     }
 
     setNewMessage("")
+    setShowMatchPicker(false)
   }
 
   async function fetchAll() {
-
     const { data: myMembership } = await supabase
       .from("club_members")
       .select("*")
@@ -156,8 +154,6 @@ export default function ClubsPage() {
       .maybeSingle()
 
     if (myMembership) {
-      setMyRole(myMembership.role)
-
       const { data: clubData } = await supabase
         .from("clubs")
         .select("*")
@@ -165,10 +161,11 @@ export default function ClubsPage() {
         .single()
 
       setMyClub(clubData)
+      if (tab === "club") setTab("chat")
 
       const { data: memberRows } = await supabase
         .from("club_members")
-        .select("*")
+        .select("user_id")
         .eq("club_id", myMembership.club_id)
 
       const memberIds = (memberRows || []).map((m) => m.user_id)
@@ -179,45 +176,11 @@ export default function ClubsPage() {
           .select("*")
           .in("id", memberIds)
 
-        const byId: Record<string, any> = {}
-        for (const p of memberProfiles || []) byId[p.id] = p
-
-        setMembers(
-          (memberRows || [])
-            .map((m) => ({ ...byId[m.user_id], role: m.role }))
-            .filter((m) => m.id)
-        )
-      }
-
-      if (myMembership.role === "leader") {
-        const { data: requests } = await supabase
-          .from("club_join_requests")
-          .select("*")
-          .eq("club_id", myMembership.club_id)
-
-        const requesterIds = (requests || []).map((r) => r.user_id)
-
-        if (requesterIds.length > 0) {
-          const { data: requesterProfiles } = await supabase
-            .from("profiles")
-            .select("*")
-            .in("id", requesterIds)
-
-          const byId: Record<string, any> = {}
-          for (const p of requesterProfiles || []) byId[p.id] = p
-
-          setPendingRequests((requests || []).map((r) => byId[r.user_id]).filter(Boolean))
-        } else {
-          setPendingRequests([])
-        }
-      } else {
-        setPendingRequests([])
+        setMembers(memberProfiles || [])
       }
     } else {
       setMyClub(null)
-      setMyRole(null)
       setMembers([])
-      setPendingRequests([])
       setMessages([])
       if (tab === "chat") setTab("club")
     }
@@ -247,6 +210,24 @@ export default function ClubsPage() {
       .eq("user_id", user.id)
 
     setMyOutgoingRequests((myRequests || []).map((r) => r.club_id))
+
+    const { data: matchesData } = await supabase
+      .from("matches")
+      .select("id, team_a, team_b, odds_team_a, odds_team_b, game, winner")
+
+    const byId: Record<number, any> = {}
+    for (const m of matchesData || []) byId[m.id] = m
+    setMatchesById(byId)
+    setShareableMatches((matchesData || []).filter((m) => m.winner === null))
+
+    const { data: myPreds } = await supabase
+      .from("predictions")
+      .select("match_id, selected_team, odds")
+      .eq("user_id", user.id)
+
+    setMyPredictionsByMatch(
+      Object.fromEntries((myPreds || []).map((p) => [p.match_id, p]))
+    )
 
     setLoading(false)
   }
@@ -303,92 +284,6 @@ export default function ClubsPage() {
     await fetchAll()
   }
 
-  async function respondRequest(otherUserId: string, accept: boolean) {
-    setBusy(true)
-    const { error } = await supabase.rpc("respond_club_request", {
-      p_user_id: otherUserId,
-      p_accept: accept,
-    })
-    setBusy(false)
-
-    if (error) {
-      toast.error(error.message)
-      return
-    }
-
-    await fetchAll()
-  }
-
-  async function kick(otherUserId: string) {
-    setBusy(true)
-    const { error } = await supabase.rpc("kick_member", { p_user_id: otherUserId })
-    setBusy(false)
-
-    if (error) {
-      toast.error(error.message)
-      return
-    }
-
-    await fetchAll()
-  }
-
-  async function leave() {
-    setBusy(true)
-    const { error } = await supabase.rpc("leave_club")
-    setBusy(false)
-
-    if (error) {
-      toast.error(error.message)
-      return
-    }
-
-    await fetchAll()
-  }
-
-  async function disband() {
-    if (!window.confirm("Dissoudre le club pour tous les membres ? C'est irréversible.")) return
-
-    setBusy(true)
-    const { error } = await supabase.rpc("disband_club")
-    setBusy(false)
-
-    if (error) {
-      toast.error(error.message)
-      return
-    }
-
-    await fetchAll()
-  }
-
-  async function updatePolicy(policy: "open" | "request" | "friends_only") {
-    setBusy(true)
-    const { error } = await supabase.rpc("update_club_join_policy", { p_join_policy: policy })
-    setBusy(false)
-
-    if (error) {
-      toast.error(error.message)
-      return
-    }
-
-    await fetchAll()
-  }
-
-  async function saveDescription() {
-    setBusy(true)
-    const { error } = await supabase.rpc("update_club_description", {
-      p_description: descriptionDraft,
-    })
-    setBusy(false)
-
-    if (error) {
-      toast.error(error.message)
-      return
-    }
-
-    setEditingDescription(false)
-    await fetchAll()
-  }
-
   if (profileLoading || loading) {
     return <ClubsSkeleton />
   }
@@ -400,48 +295,106 @@ export default function ClubsPage() {
   const membersById: Record<string, any> = {}
   for (const m of members) membersById[m.id] = m
 
-  return (
-    <div className="flex min-h-screen flex-col bg-gradient-to-b from-[#17091f] via-[#0b0b12] to-black px-4 pb-24 pt-6 text-white">
-      <h1
-        className="inline-block bg-clip-text text-3xl font-extrabold text-transparent"
-        style={{ backgroundImage: "linear-gradient(to right, #c084fc, #dc2626 80%)" }}
-      >
-        CLUBS
-      </h1>
+  const myClubRank = myClub ? rankedClubs.findIndex((c) => c.id === myClub.id) + 1 : 0
+  const suggestedClubs = rankedClubs.slice(0, 3)
 
-      <p className="mt-1 text-sm text-zinc-500">
-        Rejoins ou crée un club, discute et grimpe le classement inter-clubs
-      </p>
+  function renderJoinButton(club: any) {
+    const requestedByMe = myOutgoingRequests.includes(club.id)
+
+    if (requestedByMe) {
+      return (
+        <button
+          onClick={() => cancelRequest(club.id)}
+          disabled={busy}
+          className="shrink-0 rounded-lg border border-white/15 px-2.5 py-1.5 text-[10px] font-bold text-zinc-500"
+        >
+          Annuler
+        </button>
+      )
+    }
+
+    return (
+      <button
+        onClick={() => join(club.id)}
+        disabled={busy}
+        className="shrink-0 rounded-lg bg-gradient-to-r from-purple-600 to-red-600 px-2.5 py-1.5 text-[10px] font-bold text-white"
+      >
+        {club.join_policy === "request" ? "Demander" : "Rejoindre"}
+      </button>
+    )
+  }
+
+  return (
+    <div className="flex min-h-screen flex-col px-4 pb-24 pt-6 text-white" style={{ background: "#0f001e" }}>
+      {myClub ? (
+        <div className="flex items-center gap-3">
+          <div
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[14px]"
+            style={{ background: "linear-gradient(135deg, #7c3aed, #dc2626)" }}
+          >
+            <Shield className="h-6 w-6 text-white" strokeWidth={2} />
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <button
+              onClick={() => router.push("/clubs/membres")}
+              className="flex items-center gap-1 text-lg font-black text-white"
+            >
+              <span className="truncate">{myClub.name}</span>
+              <ChevronRight className="h-4 w-4 shrink-0" style={{ color: "#c084fc" }} />
+            </button>
+            <p className="text-xs font-bold" style={{ color: "rgba(255,255,255,0.4)" }}>
+              {powerByClub[myClub.id]?.count ?? members.length} membres · Rang #{myClubRank}
+            </p>
+          </div>
+        </div>
+      ) : (
+        <>
+          <h1
+            className="inline-block bg-clip-text text-3xl font-extrabold text-transparent"
+            style={{ backgroundImage: "linear-gradient(to right, #c084fc, #dc2626 80%)" }}
+          >
+            CLUBS
+          </h1>
+
+          <p className="mt-1 text-sm text-zinc-500">
+            Rejoins ou crée un club, discute et grimpe le classement inter-clubs
+          </p>
+        </>
+      )}
 
       <div className="mt-6 flex gap-1 rounded-2xl border border-white/10 bg-zinc-950 p-1">
-        <button
-          onClick={() => setTab("club")}
-          className="relative flex-1 rounded-xl py-2.5 text-sm font-bold"
-        >
-          {tab === "club" && (
-            <motion.div
-              layoutId="clubs-tab-indicator"
-              className="absolute inset-0 rounded-xl bg-gradient-to-r from-purple-600 to-red-600"
-              transition={{ type: "spring", bounce: 0.2, duration: 0.5 }}
-            />
-          )}
-          <span className={`relative z-10 ${tab === "club" ? "text-white" : "text-zinc-500"}`}>Club</span>
-        </button>
+        {!myClub && (
+          <button
+            onClick={() => setTab("club")}
+            className="relative flex-1 rounded-xl py-2.5 text-sm font-bold"
+          >
+            {tab === "club" && (
+              <motion.div
+                layoutId="clubs-tab-indicator"
+                className="absolute inset-0 rounded-xl bg-gradient-to-r from-purple-600 to-red-600"
+                transition={{ type: "spring", bounce: 0.2, duration: 0.5 }}
+              />
+            )}
+            <span className={`relative z-10 ${tab === "club" ? "text-white" : "text-zinc-500"}`}>Club</span>
+          </button>
+        )}
 
-        <button
-          onClick={() => myClub && setTab("chat")}
-          disabled={!myClub}
-          className="relative flex-1 rounded-xl py-2.5 text-sm font-bold disabled:opacity-40"
-        >
-          {tab === "chat" && (
-            <motion.div
-              layoutId="clubs-tab-indicator"
-              className="absolute inset-0 rounded-xl bg-gradient-to-r from-purple-600 to-red-600"
-              transition={{ type: "spring", bounce: 0.2, duration: 0.5 }}
-            />
-          )}
-          <span className={`relative z-10 ${tab === "chat" ? "text-white" : "text-zinc-500"}`}>Chat</span>
-        </button>
+        {myClub && (
+          <button
+            onClick={() => setTab("chat")}
+            className="relative flex-1 rounded-xl py-2.5 text-sm font-bold"
+          >
+            {tab === "chat" && (
+              <motion.div
+                layoutId="clubs-tab-indicator"
+                className="absolute inset-0 rounded-xl bg-gradient-to-r from-purple-600 to-red-600"
+                transition={{ type: "spring", bounce: 0.2, duration: 0.5 }}
+              />
+            )}
+            <span className={`relative z-10 ${tab === "chat" ? "text-white" : "text-zinc-500"}`}>Chat</span>
+          </button>
+        )}
 
         <button
           onClick={() => setTab("ranking")}
@@ -460,241 +413,17 @@ export default function ClubsPage() {
         </button>
       </div>
 
-      {tab === "club" && (
+      {tab === "club" && !myClub && (
         <div className="mt-6">
-          {myClub ? (
-            <div className="rounded-2xl border border-purple-400/30 bg-gradient-to-b from-purple-500/10 to-transparent p-5">
-              <div className="flex items-center gap-3">
-                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-purple-400/40 bg-gradient-to-br from-purple-600/30 to-red-600/20 shadow-[0_0_20px_rgba(168,85,247,0.25)]">
-                  <Shield className="h-7 w-7 text-purple-300" strokeWidth={2} />
-                </div>
-
-                <div className="min-w-0 flex-1">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-purple-300/70">
-                    Mon club
-                  </p>
-                  <h2
-                    className="truncate bg-clip-text text-2xl font-black text-transparent"
-                    style={{ backgroundImage: "linear-gradient(to right, #c084fc, #dc2626 80%)" }}
-                  >
-                    {myClub.name}
-                  </h2>
-
-                  {editingDescription ? (
-                    <div className="mt-1 flex items-center gap-1.5">
-                      <input
-                        value={descriptionDraft}
-                        onChange={(e) => setDescriptionDraft(e.target.value.slice(0, 120))}
-                        maxLength={120}
-                        placeholder="Décris ton club..."
-                        autoFocus
-                        className="w-full rounded-lg border border-purple-400/40 bg-black/40 px-2 py-1 text-[12px] text-white outline-none focus:border-purple-400"
-                      />
-                      <button
-                        onClick={saveDescription}
-                        disabled={busy}
-                        className="shrink-0 text-[11px] font-bold text-purple-300"
-                      >
-                        OK
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="mt-1 flex items-center gap-1.5">
-                      <p
-                        className="truncate"
-                        style={{
-                          fontSize: "12px",
-                          color: "#a0a0c0",
-                          fontStyle: myClub.description ? "normal" : "italic",
-                        }}
-                      >
-                        {myClub.description || "Aucune description pour ce club"}
-                      </p>
-
-                      {myRole === "leader" && (
-                        <button
-                          onClick={() => {
-                            setDescriptionDraft(myClub.description || "")
-                            setEditingDescription(true)
-                          }}
-                          className="shrink-0 text-zinc-500 hover:text-purple-300"
-                        >
-                          <Pencil className="h-3 w-3" strokeWidth={2.5} />
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {myRole === "leader" && (
-                  <span className="flex shrink-0 items-center gap-1 rounded-full border border-yellow-500/40 bg-yellow-500/10 px-2.5 py-1 text-[10px] font-bold text-yellow-300">
-                    <Crown className="h-3 w-3" strokeWidth={2.5} />
-                    CHEF
-                  </span>
-                )}
-              </div>
-
-              <div className="mt-4 grid grid-cols-2 gap-2">
-                <div className="rounded-xl border border-white/10 bg-black/20 p-3 text-center">
-                  <p className="text-lg font-black text-white">{members.length}</p>
-                  <p className="text-[9px] font-bold uppercase tracking-wider text-zinc-500">
-                    Membre{members.length > 1 ? "s" : ""}
-                  </p>
-                </div>
-
-                <div className="rounded-xl border border-purple-400/20 bg-purple-500/5 p-3 text-center">
-                  <p className="text-lg font-black text-purple-300 tabular-nums">
-                    <AnimatedNumber value={powerByClub[myClub.id]?.total ?? 0} />
-                  </p>
-                  <p className="text-[9px] font-bold uppercase tracking-wider text-zinc-500">
-                    PR total
-                  </p>
-                </div>
-              </div>
-
-              {myRole === "leader" && (
-                <div className="mt-3 flex flex-wrap gap-1.5">
-                  {(["open", "request", "friends_only"] as const).map((policy) => {
-                    const def = policyLabels[policy]
-                    const Icon = def.icon
-                    const active = myClub.join_policy === policy
-
-                    return (
-                      <button
-                        key={policy}
-                        onClick={() => updatePolicy(policy)}
-                        disabled={busy || active}
-                        className={`flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-bold ${
-                          active
-                            ? "border-purple-400 bg-purple-500/20 text-purple-200"
-                            : "border-white/15 text-zinc-400"
-                        }`}
-                      >
-                        <Icon className="h-3 w-3" strokeWidth={2.5} />
-                        {def.label}
-                      </button>
-                    )
-                  })}
-                </div>
-              )}
-
-              {myRole === "leader" && pendingRequests.length > 0 && (
-                <div className="mt-4">
-                  <p className="mb-2 text-xs font-bold uppercase tracking-wider text-zinc-500">
-                    Demandes en attente
-                  </p>
-
-                  <div className="space-y-2">
-                    {pendingRequests.map((requester) => (
-                      <div
-                        key={requester.id}
-                        className="flex items-center gap-2 rounded-xl border border-white/10 bg-black/20 p-2.5"
-                      >
-                        <UserAvatar username={requester.username} avatarKey={requester.avatar_key} size={32} />
-                        <p className="min-w-0 flex-1 truncate text-sm font-bold text-white">
-                          {requester.username || "Player"}
-                        </p>
-                        <button
-                          onClick={() => respondRequest(requester.id, true)}
-                          disabled={busy}
-                          className="rounded-lg bg-green-600 p-1.5"
-                        >
-                          <Check className="h-3.5 w-3.5" strokeWidth={3} />
-                        </button>
-                        <button
-                          onClick={() => respondRequest(requester.id, false)}
-                          disabled={busy}
-                          className="rounded-lg border border-white/15 p-1.5 text-zinc-400"
-                        >
-                          <X className="h-3.5 w-3.5" strokeWidth={3} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="mt-4">
-                <p className="mb-2 text-xs font-bold uppercase tracking-wider text-zinc-500">
-                  Membres
-                </p>
-
-                <div className="space-y-2">
-                  {members
-                    .sort((a, b) => getRating(b) - getRating(a))
-                    .map((member) => {
-                      const memberRank = getRankFromRating(getRating(member))
-
-                      return (
-                      <div
-                        key={member.id}
-                        className="flex items-center gap-2 rounded-xl border border-white/10 bg-black/20 p-2.5"
-                      >
-                        <UserAvatar username={member.username} avatarKey={member.avatar_key} size={32} />
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-bold text-white">
-                            {member.username || "Player"}
-                            {member.role === "leader" && (
-                              <Crown className="ml-1.5 inline h-3 w-3 text-yellow-400" />
-                            )}
-                          </p>
-                          <div className="mt-0.5 flex items-center gap-1">
-                            <RankBadge rank={memberRank.name} size={14} intensity={0.4} />
-                            <span className={`text-[10px] font-bold ${memberRank.color}`}>
-                              {memberRank.name}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="shrink-0 text-right">
-                          <p className="text-sm font-black text-purple-300 tabular-nums">
-                            <AnimatedNumber value={getRating(member)} />
-                          </p>
-                          <p className="text-[9px] font-bold text-zinc-500">PR</p>
-                        </div>
-                        {myRole === "leader" && member.id !== userId && (
-                          <button
-                            onClick={() => kick(member.id)}
-                            disabled={busy}
-                            className="shrink-0 rounded-lg border border-white/15 px-2 py-1 text-[10px] font-bold text-zinc-500"
-                          >
-                            Exclure
-                          </button>
-                        )}
-                      </div>
-                      )
-                    })}
-                </div>
-              </div>
-
-              <div className="mt-4 flex gap-2">
-                <button
-                  onClick={leave}
-                  disabled={busy}
-                  className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-white/15 py-2.5 text-sm font-bold text-zinc-300"
-                >
-                  <LogOut className="h-4 w-4" strokeWidth={2.5} />
-                  Quitter le club
-                </button>
-
-                {myRole === "leader" && (
-                  <button
-                    onClick={disband}
-                    disabled={busy}
-                    className="flex-1 rounded-xl border border-red-500/40 bg-red-500/5 py-2.5 text-center text-sm font-bold text-red-400"
-                  >
-                    <span className="flex items-center justify-center gap-1.5">
-                      <AlertTriangle className="h-4 w-4" strokeWidth={2.5} />
-                      Dissoudre
-                    </span>
-                    <span className="mt-0.5 block text-[10px] font-bold uppercase tracking-wider text-red-400/70">
-                      Action irréversible
-                    </span>
-                  </button>
-                )}
-              </div>
-            </div>
-          ) : showCreate ? (
-            <div className="rounded-2xl border border-purple-400/30 bg-purple-500/5 p-4">
+          {showCreate ? (
+            <div
+              className="p-4"
+              style={{
+                background: "rgba(255,255,255,0.04)",
+                border: "1px solid rgba(192,132,252,0.18)",
+                borderRadius: "14px",
+              }}
+            >
               <input
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
@@ -751,13 +480,76 @@ export default function ClubsPage() {
               </div>
             </div>
           ) : (
-            <button
-              onClick={() => setShowCreate(true)}
-              className="flex w-full items-center justify-center gap-2 rounded-2xl border border-purple-400/30 bg-purple-500/5 py-4 text-sm font-bold text-purple-300"
-            >
-              <UserPlus className="h-4 w-4" strokeWidth={2.5} />
-              Créer un club ({CREATE_PRICE} pts)
-            </button>
+            <div className="flex flex-col items-center pt-4 text-center">
+              <div
+                className="flex h-20 w-20 items-center justify-center rounded-[20px]"
+                style={{ background: "linear-gradient(135deg, #7c3aed, #dc2626)" }}
+              >
+                <Shield className="h-10 w-10 text-white" strokeWidth={2} />
+              </div>
+
+              <h2 className="mt-5 text-lg font-black uppercase tracking-wide text-white">
+                Tu n'as pas encore de club
+              </h2>
+
+              <div className="mt-5 flex w-full flex-col gap-2.5">
+                <button
+                  onClick={() => setTab("ranking")}
+                  className="flex items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-bold text-white"
+                  style={{ background: "linear-gradient(135deg, #7c3aed, #dc2626)" }}
+                >
+                  <UserPlus className="h-4 w-4" strokeWidth={2.5} />
+                  Rejoindre un club
+                </button>
+
+                <button
+                  onClick={() => setShowCreate(true)}
+                  className="flex items-center justify-center gap-2 rounded-2xl border py-3.5 text-sm font-bold"
+                  style={{ borderColor: "#c084fc", color: "#c084fc" }}
+                >
+                  <Plus className="h-4 w-4" strokeWidth={2.5} />
+                  Créer mon club
+                </button>
+              </div>
+
+              {suggestedClubs.length > 0 && (
+                <div className="mt-8 w-full text-left">
+                  <p className="mb-2 text-xs font-bold uppercase tracking-wider text-zinc-500">
+                    Clubs suggérés
+                  </p>
+
+                  <div className="space-y-2">
+                    {suggestedClubs.map((club, index) => {
+                      const power = powerByClub[club.id] ?? { total: 0, count: 0 }
+                      const colors = clubColor(club.name)
+
+                      return (
+                        <div
+                          key={club.id}
+                          className="flex items-center gap-3 rounded-2xl border border-white/10 bg-zinc-950/90 p-3"
+                        >
+                          <div
+                            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xs font-black"
+                            style={{ background: colors.bg, color: colors.text }}
+                          >
+                            {clubInitials(club.name)}
+                          </div>
+
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-bold text-white">{club.name}</p>
+                            <p className="text-[10px] font-bold text-zinc-500">
+                              {power.count} membre{power.count > 1 ? "s" : ""} · Rang #{index + 1}
+                            </p>
+                          </div>
+
+                          {renderJoinButton(club)}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
           )}
         </div>
       )}
@@ -774,28 +566,66 @@ export default function ClubsPage() {
               messages.map((msg) => {
                 const sender = membersById[msg.user_id]
                 const isMe = msg.user_id === userId
+                const sharedMatch = msg.match_id ? matchesById[msg.match_id] : null
+                const myPrediction = msg.match_id ? myPredictionsByMatch[msg.match_id] : null
 
                 return (
                   <div key={msg.id} className={`flex items-end gap-2 ${isMe ? "flex-row-reverse" : ""}`}>
                     <button
                       onClick={() => router.push(`/profile/${msg.user_id}`)}
-                      className="shrink-0"
+                      className="shrink-0 overflow-hidden rounded-lg"
+                      style={{ width: 30, height: 30 }}
                     >
-                      <UserAvatar username={sender?.username} avatarKey={sender?.avatar_key} size={28} />
+                      <UserAvatar username={sender?.username} avatarKey={sender?.avatar_key} size={30} />
                     </button>
 
-                    <div className={`flex max-w-[75%] flex-col gap-0.5 ${isMe ? "items-end" : "items-start"}`}>
+                    <div className={`flex max-w-[75%] flex-col gap-1 ${isMe ? "items-end" : "items-start"}`}>
                       <p className="px-1 text-[10px] font-bold text-purple-300">
                         {isMe ? "Toi" : sender?.username || "Player"}
                       </p>
 
-                      <div className={`rounded-2xl px-3 py-2 ${
-                        isMe
-                          ? "rounded-br-sm bg-gradient-to-r from-purple-600 to-red-600"
-                          : "rounded-bl-sm bg-zinc-800"
-                      }`}>
-                        <p className="text-sm text-white">{msg.content}</p>
-                      </div>
+                      {msg.kind === "match_share" ? (
+                        <div
+                          className="rounded-xl p-3"
+                          style={{ background: "rgba(124,58,237,0.08)", border: "1px solid rgba(192,132,252,0.3)" }}
+                        >
+                          {sharedMatch ? (
+                            <>
+                              <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "#c084fc" }}>
+                                {sharedMatch.game ?? "Rocket League"}
+                              </p>
+                              <p className="mt-1 text-sm font-bold text-white">
+                                {sharedMatch.team_a} <span className="text-zinc-500">vs</span> {sharedMatch.team_b}
+                              </p>
+                              <div className="mt-1.5 flex gap-3 text-[11px] font-semibold text-zinc-400">
+                                <span>{sharedMatch.team_a} · {Number(sharedMatch.odds_team_a).toFixed(2)}</span>
+                                <span>{sharedMatch.team_b} · {Number(sharedMatch.odds_team_b).toFixed(2)}</span>
+                              </div>
+                            </>
+                          ) : (
+                            <p className="text-xs text-zinc-500">Match indisponible</p>
+                          )}
+                        </div>
+                      ) : (
+                        <div className={`rounded-2xl px-3 py-2 ${
+                          isMe
+                            ? "rounded-br-sm bg-gradient-to-r from-purple-600 to-red-600"
+                            : "rounded-bl-sm"
+                        }`}
+                        style={!isMe ? { background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" } : undefined}
+                        >
+                          <p className="text-sm text-white">{msg.content}</p>
+                        </div>
+                      )}
+
+                      {isMe && msg.kind === "match_share" && myPrediction && (
+                        <span
+                          className="rounded-full px-2 py-0.5 text-[10px] font-bold"
+                          style={{ background: "rgba(124,58,237,0.15)", color: "#c084fc" }}
+                        >
+                          Prono posé · {myPrediction.selected_team} · cote {Number(myPrediction.odds).toFixed(2)}
+                        </span>
+                      )}
                     </div>
                   </div>
                 )
@@ -805,6 +635,12 @@ export default function ClubsPage() {
           </div>
 
           <div className="mt-3 flex gap-2">
+            <button
+              onClick={() => setShowMatchPicker(true)}
+              className="flex shrink-0 items-center justify-center rounded-xl border border-purple-400/40 bg-purple-500/10 px-3 text-purple-300"
+            >
+              <Swords className="h-4 w-4" strokeWidth={2.5} />
+            </button>
             <input
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
@@ -814,7 +650,7 @@ export default function ClubsPage() {
               className="flex-1 rounded-xl border border-zinc-700 bg-zinc-900 p-3 text-white outline-none focus:border-purple-500"
             />
             <button
-              onClick={sendMessage}
+              onClick={() => sendMessage()}
               disabled={sendingMessage || !newMessage.trim()}
               className="flex items-center justify-center rounded-xl bg-gradient-to-r from-purple-600 to-red-600 px-4 disabled:opacity-50"
             >
@@ -837,7 +673,6 @@ export default function ClubsPage() {
                 const position = index + 1
                 const power = powerByClub[club.id] ?? { total: 0, count: 0 }
                 const isMine = myClub?.id === club.id
-                const requestedByMe = myOutgoingRequests.includes(club.id)
                 const def = policyLabels[club.join_policy]
                 const PolicyIcon = def.icon
 
@@ -868,30 +703,49 @@ export default function ClubsPage() {
                       <p className="text-[9px] font-bold text-zinc-500">PR total</p>
                     </div>
 
-                    {!myClub && !isMine && (
-                      requestedByMe ? (
-                        <button
-                          onClick={() => cancelRequest(club.id)}
-                          disabled={busy}
-                          className="shrink-0 rounded-lg border border-white/15 px-2.5 py-1.5 text-[10px] font-bold text-zinc-500"
-                        >
-                          Annuler
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => join(club.id)}
-                          disabled={busy}
-                          className="shrink-0 rounded-lg bg-gradient-to-r from-purple-600 to-red-600 px-2.5 py-1.5 text-[10px] font-bold text-white"
-                        >
-                          {club.join_policy === "request" ? "Demander" : "Rejoindre"}
-                        </button>
-                      )
-                    )}
+                    {!myClub && !isMine && renderJoinButton(club)}
                   </motion.div>
                 )
               })}
             </motion.div>
           )}
+        </div>
+      )}
+
+      {showMatchPicker && (
+        <div
+          className="fixed inset-0 z-[60] flex items-end bg-black/80"
+          onClick={() => setShowMatchPicker(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="max-h-[70vh] w-full overflow-y-auto overscroll-contain rounded-t-3xl border-t border-purple-500 bg-zinc-950 p-5"
+          >
+            <h2 className="text-lg font-extrabold text-white">Partager un match</h2>
+
+            {shareableMatches.length === 0 ? (
+              <p className="mt-4 text-sm text-zinc-500">Aucun match à venir pour l'instant.</p>
+            ) : (
+              <div className="mt-4 space-y-2">
+                {shareableMatches.map((m) => (
+                  <button
+                    key={m.id}
+                    onClick={() => sendMessage(m.id)}
+                    disabled={sendingMessage}
+                    className="w-full rounded-xl p-3 text-left"
+                    style={{ background: "rgba(124,58,237,0.08)", border: "1px solid rgba(192,132,252,0.3)" }}
+                  >
+                    <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "#c084fc" }}>
+                      {m.game ?? "Rocket League"}
+                    </p>
+                    <p className="mt-1 text-sm font-bold text-white">
+                      {m.team_a} <span className="text-zinc-500">vs</span> {m.team_b}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
