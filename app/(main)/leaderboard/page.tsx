@@ -1,11 +1,13 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import type React from "react"
 import Image from "next/image"
 import { Info, BarChart2 } from "lucide-react"
 import { motion } from "framer-motion"
 import { supabase } from "@/lib/supabase"
 import { RankBadge } from "@/components/rank-badge"
+import { RankName } from "@/components/rank-name"
 import { getRating, getRankFromRating } from "@/lib/rank"
 import { LeaderboardSkeleton } from "@/components/leaderboard-skeleton"
 import { UserAvatar } from "@/components/user-avatar"
@@ -39,7 +41,7 @@ const rankTiers = [
   { name: "Diamond", range: "2200 - 2599 PR", img: "/ranks/diamond.png", color: "text-cyan-400", border: "border-cyan-400/50" },
   { name: "Master", range: "2600 - 2999 PR", img: "/ranks/master.png", color: "text-red-400", border: "border-red-400/50" },
   { name: "Grandmaster", range: "3000 - 3499 PR", img: "/ranks/grandmaster.png", color: "text-violet-300", border: "border-violet-300/50" },
-  { name: "Legend", range: "3500+ PR", img: "/ranks/legend.png", color: "text-pink-400", border: "border-pink-400/50" },
+  { name: "Legend", range: "3500+ PR", img: "/ranks/legend.png", color: "text-pink-400", border: "border-pink-400/50", borderGradient: ["#facc15", "#f472b6"] as [string, string] },
 ]
 
 export default function LeaderboardPage() {
@@ -126,7 +128,17 @@ export default function LeaderboardPage() {
     </div>
 
     <section
-      className={`relative mt-6 overflow-hidden rounded-2xl border ${currentRank.border} bg-gradient-to-b from-zinc-900 via-zinc-950 to-black p-3 ${currentRank.glow}`}
+      className={`relative mt-6 overflow-hidden rounded-2xl bg-gradient-to-b from-zinc-900 via-zinc-950 to-black p-3 ${currentRank.glow} ${
+        currentRank.borderGradient ? "rank-gradient-border" : `border ${currentRank.border}`
+      }`}
+      style={
+        currentRank.borderGradient
+          ? ({
+              "--border-color-a": currentRank.borderGradient[0],
+              "--border-color-b": currentRank.borderGradient[1],
+            } as React.CSSProperties)
+          : undefined
+      }
     >
       <div className="absolute -left-10 -top-10 h-28 w-28 rounded-full bg-purple-600/15 blur-3xl" />
       <div className="absolute -right-10 bottom-0 h-24 w-24 rounded-full bg-fuchsia-500/15 blur-3xl" />
@@ -136,9 +148,7 @@ export default function LeaderboardPage() {
 
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
-            <p className={`truncate text-lg font-black uppercase tracking-wide ${currentRank.color}`}>
-              {currentRank.name}
-            </p>
+            <RankName rank={currentRank} className="block truncate text-lg font-black uppercase tracking-wide" />
             <p className="shrink-0 text-base font-black text-white tabular-nums">
               <AnimatedNumber value={currentRating} />
               <span className="ml-1 text-xs text-zinc-500">PR</span>
@@ -239,7 +249,7 @@ export default function LeaderboardPage() {
       <div className="mt-0.5 flex items-center gap-1.5">
         <RankBadge rank={playerRank.name} size={16} intensity={0.4} />
         <p className="text-[11px] font-bold uppercase tracking-wider text-zinc-500">
-          LV {player.level ?? 1} · <span className={playerRank.color}>{playerRank.name}</span>
+          LV {player.level ?? 1} · <RankName rank={playerRank} />
         </p>
       </div>
     </div>
@@ -278,21 +288,35 @@ export default function LeaderboardPage() {
             {rankTiers.map((tier) => {
               const isCurrent = tier.name === currentRank.name
 
+              const hasGradient = "borderGradient" in tier && tier.borderGradient
+
               return (
                 <div
                   key={tier.name}
-                  className={`flex items-center gap-3 rounded-xl border px-3 py-2 transition-colors ${
-                    isCurrent ? `${tier.border} bg-white/[0.04]` : "border-white/5"
+                  className={`relative flex items-center gap-3 rounded-xl px-3 py-2 transition-colors ${
+                    isCurrent && hasGradient
+                      ? "rank-gradient-border bg-white/[0.04]"
+                      : isCurrent
+                      ? `border ${tier.border} bg-white/[0.04]`
+                      : "border border-white/5"
                   }`}
+                  style={
+                    isCurrent && hasGradient
+                      ? ({
+                          "--border-color-a": tier.borderGradient![0],
+                          "--border-color-b": tier.borderGradient![1],
+                        } as React.CSSProperties)
+                      : undefined
+                  }
                 >
-                  {tier.name === "Platinum" ? (
-                    <RankBadge rank="Platinum" size={32} intensity={0.6} />
+                  {["Platinum", "Master", "Grandmaster", "Legend"].includes(tier.name) ? (
+                    <RankBadge rank={tier.name} size={32} intensity={0.6} />
                   ) : (
                     <Image src={tier.img} alt={tier.name} width={32} height={32} className="h-8 w-8 object-contain" />
                   )}
 
-                  <p className={`flex-1 font-bold ${tier.color}`}>
-                    {tier.name}
+                  <p className="flex-1 font-bold">
+                    <RankName rank={tier} />
                     {isCurrent && (
                       <span className="ml-2 rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-bold text-zinc-300">
                         TOI

@@ -123,6 +123,18 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  input {
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    outline: none;
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+  }
+
+  input:focus {
+    border: 1px solid #7c3aed;
+    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.2);
+    outline: none;
+  }
 }
 
 @keyframes shine {
@@ -132,4 +144,58 @@
   100% {
     transform: translateX(100%);
   }
+}
+
+@property --border-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes border-spin {
+  to {
+    --border-angle: 360deg;
+  }
+}
+
+/* Contour degrade tournant (or + couleur du palier), utilise pour les
+   paliers prestige (Master/Grandmaster/Legend). Le degrade conic tourne
+   via --border-angle ; le masque exclude ne garde que l'anneau du contour,
+   sans faire tourner la forme arrondie de la carte elle-meme. */
+.rank-gradient-border {
+  position: relative;
+}
+
+.rank-gradient-border::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: conic-gradient(
+    from var(--border-angle),
+    var(--border-color-a),
+    var(--border-color-b),
+    var(--border-color-a)
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: border-spin 3s linear infinite;
+  pointer-events: none;
+}
+
+/* Meme degrade tournant que .rank-gradient-border, applique au texte du
+   nom de rang (ex. "MASTER") au lieu du contour. */
+.rank-gradient-text {
+  background: conic-gradient(
+    from var(--border-angle),
+    var(--border-color-a),
+    var(--border-color-b),
+    var(--border-color-a)
+  );
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  animation: border-spin 3s linear infinite;
 }

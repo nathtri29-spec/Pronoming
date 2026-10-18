@@ -6,6 +6,7 @@ import { useParams, useRouter } from "next/navigation"
 import {ArrowLeft,TrendingUp,TrendingDown,Shield,UserPlus,Check,X,Percent,CheckSquare,Gamepad2,Zap,} from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { RankBadge } from "@/components/rank-badge"
+import { RankName } from "@/components/rank-name"
 import { getRating, getRankFromRating } from "@/lib/rank"
 import { UserAvatar } from "@/components/user-avatar"
 import { PublicProfileSkeleton } from "@/components/public-profile-skeleton"
@@ -371,11 +372,21 @@ export default function PublicProfilePage() {
           </div>
 
           <div
-            className="mt-4 flex w-full items-center gap-3 rounded-2xl border p-4"
-            style={{
-              background: "linear-gradient(135deg, rgba(192,132,252,0.08), rgba(220,38,38,0.08))",
-              borderColor: "rgba(192,132,252,0.2)",
-            }}
+            className={`mt-4 flex w-full items-center gap-3 rounded-2xl p-4 ${
+              rank.borderGradient ? "rank-gradient-border" : "border"
+            }`}
+            style={
+              rank.borderGradient
+                ? ({
+                    background: "linear-gradient(135deg, rgba(192,132,252,0.08), rgba(220,38,38,0.08))",
+                    "--border-color-a": rank.borderGradient[0],
+                    "--border-color-b": rank.borderGradient[1],
+                  } as React.CSSProperties)
+                : {
+                    background: "linear-gradient(135deg, rgba(192,132,252,0.08), rgba(220,38,38,0.08))",
+                    borderColor: "rgba(192,132,252,0.2)",
+                  }
+            }
           >
             <div
               className="flex h-[76px] w-[76px] shrink-0 items-center justify-center rounded-2xl"
@@ -385,9 +396,7 @@ export default function PublicProfilePage() {
             </div>
 
             <div className="min-w-0 flex-1">
-              <p className={`truncate text-xl font-black uppercase tracking-wide ${rank.color}`}>
-                {rank.name}
-              </p>
+              <RankName rank={rank} className="block truncate text-xl font-black uppercase tracking-wide" />
               <p className="mt-0.5 text-xs font-semibold" style={{ color: "rgba(255,255,255,0.45)" }}>
                 Niveau {profile.level ?? 1}
               </p>

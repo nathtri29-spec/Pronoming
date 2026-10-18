@@ -186,7 +186,7 @@ export default function LoginPage() {
                   placeholder="Email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="mb-4 w-full rounded-xl border border-zinc-800 bg-black p-4 text-white outline-none focus:border-purple-500"
+                  className="mb-4 w-full rounded-xl bg-black p-4 text-white"
                 />
 
                 {error && (
@@ -204,7 +204,11 @@ export default function LoginPage() {
                   transition={{ type: "spring", stiffness: 400, damping: 17 }}
                   disabled={loading !== null}
                   onClick={handleForgotPassword}
-                  className="w-full rounded-xl bg-gradient-to-r from-purple-600 to-red-600 p-4 font-bold text-white transition hover:opacity-90 disabled:opacity-60"
+                  className="w-full rounded-xl p-4 font-bold text-white transition hover:opacity-90 disabled:opacity-60"
+                  style={{
+                    background: "linear-gradient(to right, #7c3aed, #dc2626)",
+                    boxShadow: "0 8px 24px rgba(124,58,237,0.35)",
+                  }}
                 >
                   {loading === "reset" ? "Envoi..." : "Envoyer le lien de réinitialisation"}
                 </motion.button>
@@ -227,26 +231,30 @@ export default function LoginPage() {
                 placeholder="Email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="mb-4 w-full rounded-xl border border-zinc-800 bg-black p-4 text-white outline-none focus:border-purple-500"
+                className="mb-4 w-full rounded-xl bg-black p-4 text-white"
               />
+
+              <div className="mb-1 flex items-center justify-between">
+                <label className="text-sm text-zinc-400">Mot de passe</label>
+
+                <button
+                  onClick={() => {
+                    setShowForgotPassword(true)
+                    setError(null)
+                  }}
+                  className="text-sm text-zinc-500 hover:text-purple-300"
+                >
+                  Mot de passe oublié ?
+                </button>
+              </div>
 
               <input
                 type="password"
                 placeholder="Mot de passe"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-xl border border-zinc-800 bg-black p-4 text-white outline-none focus:border-purple-500"
+                className="mb-4 w-full rounded-xl bg-black p-4 text-white"
               />
-
-              <button
-                onClick={() => {
-                  setShowForgotPassword(true)
-                  setError(null)
-                }}
-                className="mb-4 mt-2 text-sm text-zinc-500"
-              >
-                Mot de passe oublié ?
-              </button>
 
               {error && (
                 <motion.p
@@ -263,7 +271,11 @@ export default function LoginPage() {
                 transition={{ type: "spring", stiffness: 400, damping: 17 }}
                 disabled={loading !== null}
                 onClick={handleSignup}
-                className="mb-3 w-full rounded-xl bg-gradient-to-r from-purple-600 to-purple-400 p-4 font-bold text-white transition hover:opacity-90 disabled:opacity-60"
+                className="mb-3 w-full rounded-xl p-4 font-bold text-white transition hover:opacity-90 disabled:opacity-60"
+                style={{
+                  background: "linear-gradient(to right, #7c3aed, #dc2626)",
+                  boxShadow: "0 8px 24px rgba(124,58,237,0.35)",
+                }}
               >
                 {loading === "signup" ? "Création..." : "Créer un compte"}
               </motion.button>
@@ -273,7 +285,8 @@ export default function LoginPage() {
                 transition={{ type: "spring", stiffness: 400, damping: 17 }}
                 disabled={loading !== null}
                 onClick={handleLogin}
-                className="w-full rounded-xl bg-gradient-to-r from-red-600 to-red-500 p-4 font-bold text-white transition hover:opacity-90 disabled:opacity-60"
+                className="w-full rounded-xl bg-transparent p-4 font-bold transition hover:bg-purple-500/10 disabled:opacity-60"
+                style={{ border: "1px solid #7c3aed", color: "#7c3aed" }}
               >
                 {loading === "login" ? "Connexion..." : "Se connecter"}
               </motion.button>

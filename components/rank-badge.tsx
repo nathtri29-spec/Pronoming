@@ -18,8 +18,17 @@ type RankTier = {
   glowSecondary?: string
   ring?: boolean
   ringColor?: string
+  /** Deuxieme couleur de l'anneau (ex. or), pour un degrade au lieu d'une
+   *  teinte unique — l'anneau tourne deja, le melange se voit en tournant. */
+  ringColorSecondary?: string
   pulseScale: number
   pulseDuration: number
+  /** Etendue de l'aura en % (negatif = deborde du badge). Les paliers avec
+   *  ring (Master/Grandmaster/Legend) utilisent une aura plus resserree :
+   *  sinon le halo prend toute la place et le badge lui-meme parait petit. */
+  insetPrimary?: number
+  insetSecondary?: number
+  insetRing?: number
 }
 
 const tiers: Record<string, RankTier> = {
@@ -64,6 +73,9 @@ const tiers: Record<string, RankTier> = {
     ringColor: "rgba(248,113,113,0.95)",
     pulseScale: 1.08,
     pulseDuration: 2.6,
+    insetPrimary: -12,
+    insetSecondary: -18,
+    insetRing: -8,
   },
   Grandmaster: {
     // grandmaster.png est en réalité l'artwork violet/or.
@@ -74,6 +86,9 @@ const tiers: Record<string, RankTier> = {
     ringColor: "rgba(196,155,255,0.95)",
     pulseScale: 1.09,
     pulseDuration: 2.4,
+    insetPrimary: -12,
+    insetSecondary: -18,
+    insetRing: -8,
   },
   Legend: {
     src: "/ranks/legend.png",
@@ -81,8 +96,12 @@ const tiers: Record<string, RankTier> = {
     glowSecondary: "rgba(244,114,182,0.45)",
     ring: true,
     ringColor: "rgba(253,224,71,0.95)",
+    ringColorSecondary: "#f472b6",
     pulseScale: 1.1,
     pulseDuration: 2.2,
+    insetPrimary: -12,
+    insetSecondary: -18,
+    insetRing: -8,
   },
 }
 
@@ -103,7 +122,7 @@ export function RankBadge({ rank, size = 128, intensity = 1 }: Props) {
         <motion.div
           className="absolute rounded-full"
           style={{
-            inset: "-25%",
+            inset: `${tier.insetPrimary ?? -25}%`,
             background: `radial-gradient(circle, ${tier.glow}, transparent 70%)`,
             filter: `blur(${primaryBlur}px)`,
           }}
@@ -119,7 +138,7 @@ export function RankBadge({ rank, size = 128, intensity = 1 }: Props) {
           <motion.div
             className="absolute rounded-full"
             style={{
-              inset: "-38%",
+              inset: `${tier.insetSecondary ?? -38}%`,
               background: `radial-gradient(circle, ${tier.glowSecondary}, transparent 72%)`,
               filter: `blur(${secondaryBlur}px)`,
             }}
@@ -136,8 +155,10 @@ export function RankBadge({ rank, size = 128, intensity = 1 }: Props) {
           <motion.div
             className="absolute rounded-full"
             style={{
-              inset: "-18%",
-              background: `conic-gradient(from 0deg, transparent, ${tier.ringColor ?? tier.glow}, transparent 50%)`,
+              inset: `${tier.insetRing ?? -18}%`,
+              background: tier.ringColorSecondary
+                ? `conic-gradient(from 0deg, transparent, ${tier.ringColor ?? tier.glow}, ${tier.ringColorSecondary}, transparent 50%)`
+                : `conic-gradient(from 0deg, transparent, ${tier.ringColor ?? tier.glow}, transparent 50%)`,
               WebkitMask:
                 "radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 4px))",
               mask: "radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 4px))",

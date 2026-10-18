@@ -2,7 +2,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 
 export function ClubsSkeleton() {
   return (
-    <div className="min-h-screen px-4 pb-24 pt-6 text-white" style={{ background: "#0f001e" }}>
+    <div className="min-h-screen bg-black px-4 pb-24 pt-6 text-white">
       <Skeleton className="mb-4 h-5 w-16 bg-zinc-800" />
       <Skeleton className="h-8 w-28 bg-zinc-800" />
       <Skeleton className="mt-2 h-4 w-64 bg-zinc-800" />

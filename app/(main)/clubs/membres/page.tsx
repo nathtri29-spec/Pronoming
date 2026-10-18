@@ -59,7 +59,7 @@ export default function ClubMembersPage() {
   const [pendingRequests, setPendingRequests] = useState<any[]>([])
   const [clubRank, setClubRank] = useState<number | null>(null)
   const [winRate, setWinRate] = useState<number | null>(null)
-  const [xpTotal, setXpTotal] = useState(0)
+  const [prTotal, setPrTotal] = useState(0)
   const [showAll, setShowAll] = useState(false)
 
   const [editingDescription, setEditingDescription] = useState(false)
@@ -119,7 +119,7 @@ export default function ClubMembersPage() {
         .filter((m) => m.id)
 
       setMembers(memberList)
-      setXpTotal(memberList.reduce((sum, m) => sum + (m.xp ?? 0), 0))
+      setPrTotal(memberList.reduce((sum, m) => sum + getRating(m), 0))
 
       const { data: seasonData } = await supabase
         .from("seasons")
@@ -307,7 +307,7 @@ export default function ClubMembersPage() {
   const hiddenCount = sortedMembers.length - visibleMembers.length
 
   return (
-    <div className="min-h-screen px-4 pb-24 pt-6 text-white" style={{ background: "#0f001e" }}>
+    <div className="min-h-screen bg-black px-4 pb-24 pt-6 text-white">
       <button
         onClick={() => router.push("/clubs")}
         className="mb-4 flex items-center gap-2 text-sm font-bold text-zinc-300"
@@ -321,7 +321,7 @@ export default function ClubMembersPage() {
       <div className="mt-5 grid grid-cols-2 gap-2.5">
         <StatTile label="Rang" value={clubRank ? `#${clubRank}` : "—"} />
         <StatTile label="Win rate" value={winRate != null ? `${winRate}%` : "—"} />
-        <StatTile label="XP total" value={xpTotal} />
+        <StatTile label="PR total" value={prTotal} />
         <StatTile label="Membres" value={members.length} />
       </div>
 

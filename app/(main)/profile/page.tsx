@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { motion } from "framer-motion"
 import { supabase } from "@/lib/supabase"
 import { RankBadge } from "@/components/rank-badge"
+import { RankName } from "@/components/rank-name"
 import { getRating, getRankFromRating } from "@/lib/rank"
 import { XpBar } from "@/components/xp-bar"
 import { AnimatedNumber } from "@/components/animated-number"
@@ -332,9 +333,7 @@ async function logout() {
 
         <div className="mt-2 flex items-center justify-center gap-2">
           <RankBadge rank={rank.name} size={28} intensity={0.55} />
-          <p className={`text-sm font-bold uppercase tracking-wider ${rank.color}`}>
-            {rank.name}
-          </p>
+          <RankName rank={rank} className="block text-sm font-bold uppercase tracking-wider" />
         </div>
 
        <div

@@ -338,6 +338,61 @@ drop function if exists public.resolve_match(uuid, text);
 alter table public.predictions
   add column if not exists xp_delta integer;
 
+create table if not exists public.profile_level_events (
+  id bigint generated always as identity primary key,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  new_level integer not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists profile_level_events_user_id_created_at_idx
+  on public.profile_level_events (user_id, created_at);
+
+alter table public.profile_level_events enable row level security;
+
+drop policy if exists "profile_level_events_select_all" on public.profile_level_events;
+create policy "profile_level_events_select_all"
+  on public.profile_level_events
+  for select
+  to authenticated
+  using (true);
+
+create table if not exists public.profile_rank_events (
+  id bigint generated always as identity primary key,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  new_rank text not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists profile_rank_events_user_id_created_at_idx
+  on public.profile_rank_events (user_id, created_at);
+
+alter table public.profile_rank_events enable row level security;
+
+drop policy if exists "profile_rank_events_select_all" on public.profile_rank_events;
+create policy "profile_rank_events_select_all"
+  on public.profile_rank_events
+  for select
+  to authenticated
+  using (true);
+
+create or replace function public.rank_tier(p_rating integer)
+returns text
+language sql
+immutable
+as $$
+  select case
+    when p_rating >= 3500 then 'Legend'
+    when p_rating >= 3000 then 'Grandmaster'
+    when p_rating >= 2600 then 'Master'
+    when p_rating >= 2200 then 'Diamond'
+    when p_rating >= 1800 then 'Platinum'
+    when p_rating >= 1400 then 'Gold'
+    when p_rating >= 1000 then 'Silver'
+    else 'Bronze'
+  end;
+$$;
+
 create or replace function public.resolve_match(
   p_match_id bigint,
   p_winner text
@@ -452,6 +507,16 @@ begin
             rating = v_new_rating
         where id = v_pred.user_id;
 
+      if v_new_level > v_current_level then
+        insert into public.profile_level_events (user_id, new_level)
+        values (v_pred.user_id, v_new_level);
+      end if;
+
+      if public.rank_tier(v_new_rating) <> public.rank_tier(v_current_rating) then
+        insert into public.profile_rank_events (user_id, new_rank)
+        values (v_pred.user_id, public.rank_tier(v_new_rating));
+      end if;
+
       if v_new_streak >= 3 then
         insert into public.profile_achievements (user_id, achievement_key)
         values (v_pred.user_id, 'win_streak_3')
@@ -512,6 +577,11 @@ begin
             rating = v_new_rating,
             points = points + v_insurance_refund
         where id = v_pred.user_id;
+
+      if v_new_level > v_current_level then
+        insert into public.profile_level_events (user_id, new_level)
+        values (v_pred.user_id, v_new_level);
+      end if;
 
       if v_new_level >= 10 then
         insert into public.profile_achievements (user_id, achievement_key)
@@ -1513,3 +1583,25 @@ grant execute on function public.update_club_description(text) to authenticated;
 
 alter table public.matches
   add column if not exists game text not null default 'Rocket League';
+
+alter table public.profiles
+  add column if not exists wins_seen_at timestamptz not null default now();
+
+create or replace function public.mark_wins_seen()
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_user_id uuid := auth.uid();
+begin
+  if v_user_id is null then
+    raise exception 'Non authentifie';
+  end if;
+
+  update public.profiles set wins_seen_at = now() where id = v_user_id;
+end;
+$$;
+
+grant execute on function public.mark_wins_seen() to authenticated;

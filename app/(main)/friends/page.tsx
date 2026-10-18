@@ -6,6 +6,7 @@ import { motion } from "framer-motion"
 import { supabase } from "@/lib/supabase"
 import { UserAvatar } from "@/components/user-avatar"
 import { RankBadge } from "@/components/rank-badge"
+import { RankName } from "@/components/rank-name"
 import { AnimatedNumber } from "@/components/animated-number"
 import { getRating, getRankFromRating } from "@/lib/rank"
 import { ArrowLeft, Search, UserPlus, Check, X, Users } from "lucide-react"
@@ -242,7 +243,7 @@ export default function FriendsPage() {
 
                         <div className="mt-0.5 flex items-center gap-1">
                           <RankBadge rank={rank.name} size={16} intensity={0.4} />
-                          <span className={`text-xs font-bold ${rank.color}`}>{rank.name}</span>
+                          <RankName rank={rank} className="text-xs font-bold" />
                         </div>
                       </div>
                     </button>
@@ -393,7 +394,7 @@ export default function FriendsPage() {
 
                           <div className="mt-0.5 flex items-center gap-1">
                             <RankBadge rank={rank.name} size={16} intensity={0.4} />
-                            <span className={`text-xs font-bold ${rank.color}`}>{rank.name}</span>
+                            <RankName rank={rank} className="text-xs font-bold" />
                           </div>
                         </div>
                       </button>

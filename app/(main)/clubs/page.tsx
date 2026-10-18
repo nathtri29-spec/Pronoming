@@ -78,6 +78,9 @@ export default function ClubsPage() {
   const [myPredictionsByMatch, setMyPredictionsByMatch] = useState<Record<number, any>>({})
   const [showMatchPicker, setShowMatchPicker] = useState(false)
 
+  const [weeklyMvp, setWeeklyMvp] = useState<{ id: string; username: string; avatar_key: string | null; winRate: number } | null>(null)
+  const [feedEvents, setFeedEvents] = useState<any[]>([])
+
   useEffect(() => {
     if (!profileLoading && !user) {
       router.replace("/login")
@@ -177,11 +180,84 @@ export default function ClubsPage() {
           .in("id", memberIds)
 
         setMembers(memberProfiles || [])
+
+        const profileById: Record<string, any> = {}
+        for (const p of memberProfiles || []) profileById[p.id] = p
+
+        const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+
+        const { data: weekPreds } = await supabase
+          .from("predictions")
+          .select("id, user_id, status, resolved_at")
+          .in("user_id", memberIds)
+          .not("resolved_at", "is", null)
+          .gte("resolved_at", sevenDaysAgo.toISOString())
+
+        const statsByUser: Record<string, { won: number; total: number }> = {}
+        for (const p of weekPreds || []) {
+          if (!statsByUser[p.user_id]) statsByUser[p.user_id] = { won: 0, total: 0 }
+          statsByUser[p.user_id].total += 1
+          if (p.status === "won") statsByUser[p.user_id].won += 1
+        }
+
+        let mvpId: string | null = null
+        let mvpRate = -1
+        for (const [uid, s] of Object.entries(statsByUser)) {
+          if (s.total < 2) continue
+          const rate = s.won / s.total
+          if (rate > mvpRate) {
+            mvpRate = rate
+            mvpId = uid
+          }
+        }
+
+        setWeeklyMvp(
+          mvpId && profileById[mvpId]
+            ? {
+                id: mvpId,
+                username: profileById[mvpId].username || "Player",
+                avatar_key: profileById[mvpId].avatar_key,
+                winRate: Math.round(mvpRate * 100),
+              }
+            : null
+        )
+
+        const { data: levelEvents } = await supabase
+          .from("profile_level_events")
+          .select("id, user_id, new_level, created_at")
+          .in("user_id", memberIds)
+          .gte("created_at", sevenDaysAgo.toISOString())
+
+        const { data: rankEvents } = await supabase
+          .from("profile_rank_events")
+          .select("id, user_id, new_rank, created_at")
+          .in("user_id", memberIds)
+          .gte("created_at", sevenDaysAgo.toISOString())
+
+        const levelupEvents = (levelEvents || []).map((e) => ({
+          id: `level-${e.id}`,
+          kind: "levelup" as const,
+          user_id: e.user_id,
+          created_at: e.created_at,
+          newLevel: e.new_level,
+        }))
+
+        const rankupEvents = (rankEvents || []).map((e) => ({
+          id: `rank-${e.id}`,
+          kind: "rankup" as const,
+          user_id: e.user_id,
+          created_at: e.created_at,
+          newRank: e.new_rank,
+        }))
+
+        setFeedEvents([...levelupEvents, ...rankupEvents])
       }
     } else {
       setMyClub(null)
       setMembers([])
       setMessages([])
+      setWeeklyMvp(null)
+      setFeedEvents([])
       if (tab === "chat") setTab("club")
     }
 
@@ -295,7 +371,11 @@ export default function ClubsPage() {
   const membersById: Record<string, any> = {}
   for (const m of members) membersById[m.id] = m
 
-  const myClubRank = myClub ? rankedClubs.findIndex((c) => c.id === myClub.id) + 1 : 0
+  const timeline = [
+    ...messages.map((m) => ({ type: "message" as const, data: m, ts: new Date(m.created_at).getTime() })),
+    ...feedEvents.map((e) => ({ type: "feed" as const, data: e, ts: new Date(e.created_at).getTime() })),
+  ].sort((a, b) => a.ts - b.ts)
+
   const suggestedClubs = rankedClubs.slice(0, 3)
 
   function renderJoinButton(club: any) {
@@ -325,7 +405,7 @@ export default function ClubsPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col px-4 pb-24 pt-6 text-white" style={{ background: "#0f001e" }}>
+    <div className="flex min-h-screen flex-col bg-black px-4 pb-24 pt-6 text-white">
       {myClub ? (
         <div className="flex items-center gap-3">
           <div
@@ -344,9 +424,42 @@ export default function ClubsPage() {
               <ChevronRight className="h-4 w-4 shrink-0" style={{ color: "#c084fc" }} />
             </button>
             <p className="text-xs font-bold" style={{ color: "rgba(255,255,255,0.4)" }}>
-              {powerByClub[myClub.id]?.count ?? members.length} membres · Rang #{myClubRank}
+              {powerByClub[myClub.id]?.count ?? members.length} membres
             </p>
           </div>
+
+          {weeklyMvp && (
+            <div
+              className="flex shrink-0 items-center gap-2 p-2"
+              style={{ background: "rgba(124,58,237,0.2)", border: "1px solid rgba(192,132,252,0.3)", borderRadius: "12px" }}
+            >
+              <div
+                className="flex h-5 w-5 shrink-0 items-center justify-center text-[8px] font-black text-white"
+                style={{ background: "linear-gradient(135deg, #c084fc, #7c3aed)", borderRadius: "5px" }}
+              >
+                {weeklyMvp.username.slice(0, 2).toUpperCase()}
+              </div>
+
+              <div className="min-w-0">
+                <p className="text-[9px] font-bold uppercase" style={{ color: "rgba(255,255,255,0.4)" }}>
+                  MVP semaine
+                </p>
+                <p
+                  className="truncate text-xs font-black"
+                  style={{
+                    backgroundImage: "linear-gradient(to right, #c084fc, #dc2626)",
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                  }}
+                >
+                  {weeklyMvp.username}
+                </p>
+                <p className="text-[9px] font-bold" style={{ color: "rgba(255,255,255,0.4)" }}>
+                  {weeklyMvp.winRate}% win rate
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         <>
@@ -557,13 +670,42 @@ export default function ClubsPage() {
       {tab === "chat" && myClub && (
         <div className="mt-6 flex flex-col">
           <div className="max-h-[55vh] min-h-[55vh] space-y-3 overflow-y-auto rounded-2xl border border-white/10 bg-black/20 p-4">
-            {messages.length === 0 ? (
+            {timeline.length === 0 ? (
               <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
                 <MessageCircle className="h-8 w-8 text-zinc-600" strokeWidth={1.5} />
                 <p className="text-sm text-zinc-500">Sois le premier à écrire dans le club</p>
               </div>
             ) : (
-              messages.map((msg) => {
+              timeline.map((item) => {
+                if (item.type === "feed") {
+                  const event = item.data
+                  const member = membersById[event.user_id]
+                  const name = event.user_id === userId ? "Toi" : member?.username || "Un membre"
+                  const isRankUp = event.kind === "rankup"
+                  const color = isRankUp ? "#fbbf24" : "#c084fc"
+                  const lineColor = isRankUp ? "rgba(250,204,21,0.2)" : "rgba(192,132,252,0.2)"
+                  const bg = isRankUp ? "rgba(250,204,21,0.08)" : "rgba(192,132,252,0.08)"
+
+                  return (
+                    <div key={event.id} className="flex items-center gap-2 py-0.5">
+                      <div className="h-px flex-1" style={{ background: lineColor }} />
+                      <div
+                        className="flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1"
+                        style={{ background: bg, border: `1px solid ${lineColor}` }}
+                      >
+                        <span className="text-xs" style={{ color }}>{isRankUp ? "⬆" : "★"}</span>
+                        <span className="text-[11px] font-semibold text-zinc-300">
+                          {isRankUp
+                            ? `${name} est monté en rang ${event.newRank} !`
+                            : `${name} est passé niveau ${event.newLevel} !`}
+                        </span>
+                      </div>
+                      <div className="h-px flex-1" style={{ background: lineColor }} />
+                    </div>
+                  )
+                }
+
+                const msg = item.data
                 const sender = membersById[msg.user_id]
                 const isMe = msg.user_id === userId
                 const sharedMatch = msg.match_id ? matchesById[msg.match_id] : null

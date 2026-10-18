@@ -5,6 +5,7 @@ import Image from "next/image"
 import { supabase } from "@/lib/supabase"
 import { XpBar } from "@/components/xp-bar"
 import { RewardPopup } from "@/components/reward-popup"
+import { WinRecapModal, type WonRecapItem } from "@/components/win-recap-modal"
 import { HomeSkeleton } from "@/components/home-skeleton"
 import { useRouter } from "next/navigation"
 import { FileText, Gamepad2, Check, Flame, ChevronDown } from "lucide-react"
@@ -62,6 +63,7 @@ export default function Home() {
   const [selectedBoosts, setSelectedBoosts] = useState<Set<BoostKey>>(new Set())
   const [selectedGame, setSelectedGame] = useState<string | null>(null)
   const [showGameMenu, setShowGameMenu] = useState(false)
+  const [winRecap, setWinRecap] = useState<WonRecapItem[] | null>(null)
   const sheetPanelRef = useScrollLock(!!selectedMatch)
   const reduceMotion = useReducedMotion()
 
@@ -133,6 +135,55 @@ export default function Home() {
       .eq("status", "pending")
 
     setActiveBoosts(boostsData || [])
+
+    await checkUnseenWins(userId)
+  }
+
+  async function checkUnseenWins(userId: string) {
+    const { data: profileRow } = await supabase
+      .from("profiles")
+      .select("wins_seen_at")
+      .eq("id", userId)
+      .single()
+
+    if (!profileRow) return
+
+    const { data: resolvedPreds } = await supabase
+      .from("predictions")
+      .select("id, status, stake, odds, rating_delta, gain_boost_applied, insurance_applied, resolved_at, matches (team_a, team_b)")
+      .eq("user_id", userId)
+      .not("status", "eq", "pending")
+      .gt("resolved_at", profileRow.wins_seen_at)
+      .order("resolved_at", { ascending: true })
+
+    if (!resolvedPreds || resolvedPreds.length === 0) return
+
+    setWinRecap(
+      resolvedPreds.map((p: any) => {
+        const isWon = p.status === "won"
+        let gain = 0
+
+        if (isWon) {
+          gain = Math.round(p.stake * p.odds)
+          if (p.gain_boost_applied) gain = Math.round(gain * 1.2)
+        } else {
+          gain = p.insurance_applied ? -Math.round(p.stake * 0.5) : -p.stake
+        }
+
+        return {
+          id: p.id,
+          status: p.status as "won" | "lost",
+          matchLabel: p.matches ? `${p.matches.team_a} vs ${p.matches.team_b}` : "Pronostic",
+          ratingDelta: p.rating_delta,
+          gain,
+        }
+      })
+    )
+  }
+
+  async function closeWinRecap() {
+    setWinRecap(null)
+    await supabase.rpc("mark_wins_seen")
   }
 
   function xpProgress() {
@@ -685,6 +736,8 @@ className="max-h-[85vh] w-full overflow-y-auto overscroll-contain rounded-t-3xl 
     title="Prédiction validée"
     subtitle={predictionSuccess ?? undefined}
   />
+
+  <WinRecapModal wins={winRecap} onClose={closeWinRecap} />
 
 </div>
 )

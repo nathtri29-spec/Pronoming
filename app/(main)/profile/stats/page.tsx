@@ -157,7 +157,7 @@ export default function StatsPage() {
   const maxAbsDelta = Math.max(1, ...chartDays.map((d) => Math.abs(d.delta)))
 
   return (
-    <div className="min-h-screen px-4 pb-24 pt-6 text-white" style={{ background: "#0f001e" }}>
+    <div className="min-h-screen bg-black px-4 pb-24 pt-6 text-white">
       <button
         onClick={() => router.back()}
         className="mb-4 flex items-center gap-2 text-sm font-bold text-zinc-300"

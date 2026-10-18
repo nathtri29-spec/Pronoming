@@ -8,6 +8,9 @@ export type RankInfo = {
   next: string | null
   nextRating: number | null
   floor: number
+  /** Degrade or + couleur du palier, pour les contours des paliers prestige
+   *  (Master/Grandmaster/Legend) a la place d'un contour uni. */
+  borderGradient?: [string, string]
 }
 
 export function getRating(profile: { rating?: number }) {
@@ -36,6 +39,7 @@ export function getRankFromRating(rating: number): RankInfo {
       next: null,
       nextRating: null,
       floor: 3500,
+      borderGradient: ["#facc15", "#f472b6"],
     }
   if (rating >= 3000)
     return {
