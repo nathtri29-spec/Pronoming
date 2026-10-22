@@ -156,8 +156,10 @@ export default function ProfilePage() {
   ).length
 
   async function updateUsername() {
-  if (!newUsername.trim()) {
-    toast.error("Entre un pseudo valide")
+  const trimmed = newUsername.trim()
+
+  if (trimmed.length < 2 || trimmed.length > 20) {
+    toast.error("Le pseudo doit faire entre 2 et 20 caractères")
     return
   }
 
@@ -165,11 +167,11 @@ export default function ProfilePage() {
 
   const { error } = await supabase
     .from("profiles")
-    .update({ username: newUsername.trim() })
+    .update({ username: trimmed })
     .eq("id", user.id)
 
   if (error) {
-    toast.error(error.message)
+    toast.error(error.code === "23505" ? "Ce pseudo est déjà pris" : error.message)
     return
   }
 
@@ -309,6 +311,7 @@ async function logout() {
       value={newUsername}
       onChange={(e) => setNewUsername(e.target.value)}
       placeholder="Nouveau pseudo"
+      maxLength={20}
       className="w-full rounded-xl border border-zinc-700 bg-black p-3 text-white outline-none focus:border-purple-500"
     />
 

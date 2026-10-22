@@ -215,6 +215,10 @@ begin
     raise exception 'Ce match est deja termine';
   end if;
 
+  if v_match.start_time is not null and v_match.start_time <= now() then
+    raise exception 'Les paris sont fermes, ce match a deja commence';
+  end if;
+
   if p_selected_team = v_match.team_a then
     v_odds := v_match.odds_team_a;
   elsif p_selected_team = v_match.team_b then
@@ -1605,3 +1609,56 @@ end;
 $$;
 
 grant execute on function public.mark_wins_seen() to authenticated;
+
+revoke update (selected_title) on public.profiles from authenticated;
+
+create or replace function public.equip_title(
+  p_title text
+)
+returns public.profiles
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_user_id uuid := auth.uid();
+  v_profile public.profiles%rowtype;
+  v_owned jsonb;
+begin
+  if v_user_id is null then
+    raise exception 'Non authentifie';
+  end if;
+
+  select * into v_profile from public.profiles where id = v_user_id for update;
+  if not found then
+    raise exception 'Profil introuvable';
+  end if;
+
+  v_owned := coalesce(v_profile.owned_titles::jsonb, '["Rookie Predictor"]'::jsonb);
+
+  if not (v_owned ? p_title) then
+    raise exception 'Titre non possede';
+  end if;
+
+  update public.profiles
+    set selected_title = p_title
+    where id = v_user_id
+    returning * into v_profile;
+
+  return v_profile;
+end;
+$$;
+
+grant execute on function public.equip_title(text) to authenticated;
+
+alter table public.profiles
+  drop constraint if exists profiles_username_length;
+
+alter table public.profiles
+  add constraint profiles_username_length
+  check (username is null or char_length(username) between 2 and 20);
+
+drop index if exists profiles_username_unique_idx;
+
+create unique index profiles_username_unique_idx
+  on public.profiles (lower(username));

@@ -67,10 +67,9 @@ export default function PersonnalisationPage() {
   async function updateTitle(title: string) {
     if (!profile) return
 
-    const { error } = await supabase
-      .from("profiles")
-      .update({ selected_title: title })
-      .eq("id", profile.id)
+    const { error } = await supabase.rpc("equip_title", {
+      p_title: title,
+    })
 
     if (error) {
       toast.error(error.message)

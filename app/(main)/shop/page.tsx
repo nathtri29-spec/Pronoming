@@ -159,10 +159,9 @@ setTimeout(() => {
   async function equipTitle(titleName: string) {
     if (!profile) return
 
-    const { error } = await supabase
-      .from("profiles")
-      .update({ selected_title: titleName })
-      .eq("id", profile.id)
+    const { error } = await supabase.rpc("equip_title", {
+      p_title: titleName,
+    })
 
     if (error) {
       toast.error(error.message)
