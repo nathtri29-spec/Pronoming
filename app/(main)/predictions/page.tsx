@@ -94,6 +94,7 @@ export default function PredictionsPage() {
   {filteredPredictions.map((prediction) => {
           const isWon = prediction.status === "won"
           const isLost = prediction.status === "lost"
+          const isCancelled = prediction.status === "cancelled"
 
           let gain = Math.round(prediction.stake * prediction.odds)
           if (prediction.gain_boost_applied) gain = Math.round(gain * 1.2)
@@ -116,6 +117,8 @@ export default function PredictionsPage() {
     ? "border-green-400/60 shadow-[0_0_18px_rgba(74,222,128,0.22)]"
     : isLost
     ? "border-red-400/60 shadow-[0_0_18px_rgba(248,113,113,0.18)]"
+    : isCancelled
+    ? "border-zinc-600/60"
     : "border-purple-400/40 shadow-[0_0_14px_rgba(168,85,247,0.14)]"
 }`}
             >
@@ -145,7 +148,13 @@ export default function PredictionsPage() {
                     </span>
                   )}
 
-                  {!isWon && !isLost && (
+                  {isCancelled && (
+                    <span className="text-zinc-400">
+                     ANNULÉ
+                    </span>
+                  )}
+
+                  {!isWon && !isLost && !isCancelled && (
                     <span className="text-purple-400">
                      EN ATTENTE
                     </span>
@@ -204,6 +213,17 @@ export default function PredictionsPage() {
     )}
   </div>
 )}
+
+              {isCancelled && (
+                <div className="mt-2">
+                  <p className="font-bold text-zinc-400">
+                    +{prediction.stake} pts remboursés
+                  </p>
+                  <p className="text-sm text-zinc-500">
+                    Match annulé — boosts éventuels également remboursés
+                  </p>
+                </div>
+              )}
 
               <BoostChips prediction={prediction} />
             </div>

@@ -178,7 +178,7 @@ export default function PublicProfilePage() {
   const predictions = profile.predictions ?? []
 
   const finishedPredictions = predictions.filter(
-    (prediction: any) => prediction.status !== "pending"
+    (prediction: any) => prediction.status === "won" || prediction.status === "lost"
   )
 
   const wins = finishedPredictions.filter(
@@ -630,18 +630,21 @@ function MiniStatCard({
 function PredictionRow({ prediction }: { prediction: any }) {
   const isWon = prediction.status === "won"
   const isLost = prediction.status === "lost"
+  const isCancelled = prediction.status === "cancelled"
 
   const matchTitle = prediction.matches
     ? `${prediction.matches.team_a} vs ${prediction.matches.team_b}`
     : "Pronostic"
 
-  const result = isWon ? "Victoire" : isLost ? "Défaite" : "En attente"
+  const result = isWon ? "Victoire" : isLost ? "Défaite" : isCancelled ? "Annulé" : "En attente"
 
   const pr =
     isWon || isLost
       ? prediction.rating_delta != null
         ? `${prediction.rating_delta > 0 ? "+" : ""}${prediction.rating_delta} PR`
         : "—"
+      : isCancelled
+      ? "Remboursé"
       : "En attente"
 
   const color = isWon ? "text-green-400" : isLost ? "text-red-400" : "text-zinc-400"

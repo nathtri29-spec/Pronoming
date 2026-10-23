@@ -132,6 +132,28 @@ export default function AdminPage() {
     toast.success(`${winner} déclaré vainqueur`)
   }
 
+  async function cancelMatch(matchId: string) {
+    if (!window.confirm("Annuler ce match ? Toutes les mises en attente seront remboursées (boosts inclus).")) {
+      return
+    }
+
+    setResolvingId(matchId)
+
+    const { error } = await supabase.rpc("cancel_match", {
+      p_match_id: matchId,
+    })
+
+    setResolvingId(null)
+
+    if (error) {
+      toast.error(error.message)
+      return
+    }
+
+    fetchMatches()
+    toast.success("Match annulé, les joueurs ont été remboursés")
+  }
+
   if (checkingAccess) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-black text-white">
@@ -140,11 +162,11 @@ export default function AdminPage() {
     )
   }
 
-  const pendingCount = matches.filter((match) => !match.winner).length
-  const resolvedCount = matches.filter((match) => !!match.winner).length
+  const pendingCount = matches.filter((match) => !match.winner && !match.cancelled_at).length
+  const resolvedCount = matches.filter((match) => !!match.winner || !!match.cancelled_at).length
 
   const filteredMatches = matches.filter((match) =>
-    tab === "pending" ? !match.winner : !!match.winner
+    tab === "pending" ? !match.winner && !match.cancelled_at : !!match.winner || !!match.cancelled_at
   )
 
   return (
@@ -233,6 +255,10 @@ export default function AdminPage() {
                     <Trophy className="h-3 w-3" strokeWidth={2.5} />
                     {match.winner}
                   </span>
+                ) : match.cancelled_at ? (
+                  <span className="flex items-center gap-1 rounded-full border border-zinc-500/40 bg-zinc-500/10 px-2.5 py-1 text-[10px] font-bold text-zinc-400">
+                    Annulé
+                  </span>
                 ) : (
                   <span className="flex items-center gap-1 rounded-full border border-yellow-500/40 bg-yellow-500/10 px-2.5 py-1 text-[10px] font-bold text-yellow-300">
                     <Gamepad2 className="h-3 w-3" strokeWidth={2.5} />
@@ -241,24 +267,36 @@ export default function AdminPage() {
                 )}
               </div>
 
-              {!match.winner && (
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  <button
-                    disabled={resolvingId === match.id}
-                    className="rounded-xl bg-gradient-to-r from-purple-600 to-purple-400 px-3 py-2.5 text-sm font-bold text-white disabled:opacity-40"
-                    onClick={() => resolveMatch(match.id, match.team_a)}
-                  >
-                    {resolvingId === match.id ? "..." : `${match.team_a} gagne`}
-                  </button>
+              {!match.winner && !match.cancelled_at && (
+                <>
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <button
+                      disabled={resolvingId === match.id}
+                      className="rounded-xl bg-gradient-to-r from-purple-600 to-purple-400 px-3 py-2.5 text-sm font-bold text-white disabled:opacity-40"
+                      onClick={() => resolveMatch(match.id, match.team_a)}
+                    >
+                      {resolvingId === match.id ? "..." : `${match.team_a} gagne`}
+                    </button>
 
-                  <button
-                    disabled={resolvingId === match.id}
-                    className="rounded-xl bg-gradient-to-r from-red-600 to-red-500 px-3 py-2.5 text-sm font-bold text-white disabled:opacity-40"
-                    onClick={() => resolveMatch(match.id, match.team_b)}
-                  >
-                    {resolvingId === match.id ? "..." : `${match.team_b} gagne`}
-                  </button>
-                </div>
+                    <button
+                      disabled={resolvingId === match.id}
+                      className="rounded-xl bg-gradient-to-r from-red-600 to-red-500 px-3 py-2.5 text-sm font-bold text-white disabled:opacity-40"
+                      onClick={() => resolveMatch(match.id, match.team_b)}
+                    >
+                      {resolvingId === match.id ? "..." : `${match.team_b} gagne`}
+                    </button>
+                  </div>
+
+                  <div className="mt-2 flex justify-end">
+                    <button
+                      disabled={resolvingId === match.id}
+                      className="rounded-lg border border-red-500/30 bg-red-500/5 px-2.5 py-1 text-[10px] font-bold text-red-400/80 disabled:opacity-40"
+                      onClick={() => cancelMatch(match.id)}
+                    >
+                      Annuler le match
+                    </button>
+                  </div>
+                </>
               )}
             </motion.div>
           ))}

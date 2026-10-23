@@ -103,6 +103,7 @@ export default function Home() {
   .from("matches")
   .select("*")
   .is("winner", null)
+  .is("cancelled_at", null)
   .order("start_time", { ascending: true })
 
     if (matchesData) setMatches(matchesData)
@@ -152,7 +153,7 @@ export default function Home() {
       .from("predictions")
       .select("id, status, stake, odds, rating_delta, gain_boost_applied, insurance_applied, resolved_at, matches (team_a, team_b)")
       .eq("user_id", userId)
-      .not("status", "eq", "pending")
+      .in("status", ["won", "lost"])
       .gt("resolved_at", profileRow.wins_seen_at)
       .order("resolved_at", { ascending: true })
 
@@ -485,6 +486,10 @@ const startsSoon = !isLive && date.getTime() - Date.now() < 2 * 60 * 60 * 1000
   </div>
 </div>
 
+<p className="-mt-3 mb-4 text-[11px]" style={{ color: "rgba(255,255,255,0.4)" }}>
+  ⏱ L'horaire réel peut varier · pronos ouverts jusqu'à l'heure indiquée
+</p>
+
                 <div className="mb-5 flex items-center justify-between">
                   <TeamBlock
                     name={match.team_a}
@@ -501,14 +506,6 @@ const startsSoon = !isLive && date.getTime() - Date.now() < 2 * 60 * 60 * 1000
                       <span className="rounded-full border border-purple-500/40 bg-purple-600/20 px-2 py-1 text-[10px] font-bold text-purple-300">
                         PRONOSTIQUÉ
                       </span>
-                    ) : isLive ? (
-                      <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-red-400">
-                        <span className="relative flex h-2 w-2">
-                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-75" />
-                          <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
-                        </span>
-                        En direct
-                      </span>
                     ) : startsSoon ? (
                       <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-amber-400">
                         <span className="relative flex h-2 w-2">
@@ -517,9 +514,7 @@ const startsSoon = !isLive && date.getTime() - Date.now() < 2 * 60 * 60 * 1000
                         </span>
                         Bientôt
                       </span>
-                    ) : (
-                      <p className="text-xs text-zinc-600">BO5</p>
-                    )}
+                    ) : null}
                   </div>
 
                   <TeamBlock

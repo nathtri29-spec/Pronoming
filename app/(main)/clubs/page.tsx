@@ -190,7 +190,7 @@ export default function ClubsPage() {
           .from("predictions")
           .select("id, user_id, status, resolved_at")
           .in("user_id", memberIds)
-          .not("resolved_at", "is", null)
+          .in("status", ["won", "lost"])
           .gte("resolved_at", sevenDaysAgo.toISOString())
 
         const statsByUser: Record<string, { won: number; total: number }> = {}
@@ -289,12 +289,12 @@ export default function ClubsPage() {
 
     const { data: matchesData } = await supabase
       .from("matches")
-      .select("id, team_a, team_b, odds_team_a, odds_team_b, game, winner")
+      .select("id, team_a, team_b, odds_team_a, odds_team_b, game, winner, cancelled_at")
 
     const byId: Record<number, any> = {}
     for (const m of matchesData || []) byId[m.id] = m
     setMatchesById(byId)
-    setShareableMatches((matchesData || []).filter((m) => m.winner === null))
+    setShareableMatches((matchesData || []).filter((m) => m.winner === null && !m.cancelled_at))
 
     const { data: myPreds } = await supabase
       .from("predictions")

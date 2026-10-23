@@ -159,6 +159,28 @@ create policy "profile_achievements_select_own"
   to authenticated
   using (auth.uid() = user_id);
 
+alter table public.matches
+  add column if not exists cancelled_at timestamptz;
+
+alter table public.predictions
+  add column if not exists insurance_boost_id bigint references public.profile_boosts(id);
+
+alter table public.predictions
+  add column if not exists gain_boost_id bigint references public.profile_boosts(id);
+
+alter table public.predictions
+  add column if not exists xp_boost_id bigint references public.profile_boosts(id);
+
+alter table public.predictions
+  add column if not exists pr_gamble_boost_id bigint references public.profile_boosts(id);
+
+alter table public.predictions
+  drop constraint if exists predictions_status_check;
+
+alter table public.predictions
+  add constraint predictions_status_check
+  check (status in ('pending', 'won', 'lost', 'cancelled'));
+
 create or replace function public.place_prediction(
   p_match_id bigint,
   p_selected_team text,
@@ -213,6 +235,10 @@ begin
 
   if v_match.winner is not null then
     raise exception 'Ce match est deja termine';
+  end if;
+
+  if v_match.cancelled_at is not null then
+    raise exception 'Ce match a ete annule';
   end if;
 
   if v_match.start_time is not null and v_match.start_time <= now() then
@@ -313,11 +339,13 @@ begin
 
   insert into public.predictions (
     user_id, match_id, selected_team, stake, odds, status, max_stake_at_placement,
-    insurance_applied, gain_boost_applied, xp_boost_applied, pr_gamble_applied
+    insurance_applied, gain_boost_applied, xp_boost_applied, pr_gamble_applied,
+    insurance_boost_id, gain_boost_id, xp_boost_id, pr_gamble_boost_id
   )
   values (
     v_user_id, p_match_id, p_selected_team, p_stake, v_odds, 'pending', v_max_stake,
-    v_insurance_applied, v_gain_boost_applied, v_xp_boost_applied, v_pr_gamble_applied
+    v_insurance_applied, v_gain_boost_applied, v_xp_boost_applied, v_pr_gamble_applied,
+    v_insurance_id, v_gain_boost_id, v_xp_boost_id, v_pr_gamble_id
   )
   returning * into v_prediction;
 
@@ -598,6 +626,86 @@ end;
 $$;
 
 grant execute on function public.resolve_match(bigint, text) to authenticated;
+
+create or replace function public.cancel_match(
+  p_match_id bigint
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_caller uuid := auth.uid();
+  v_is_admin boolean;
+  v_match public.matches%rowtype;
+  v_pred record;
+begin
+  if v_caller is null then
+    raise exception 'Non authentifie';
+  end if;
+
+  select is_admin into v_is_admin from public.profiles where id = v_caller;
+  if not coalesce(v_is_admin, false) then
+    raise exception 'Acces refuse';
+  end if;
+
+  select * into v_match from public.matches where id = p_match_id for update;
+  if not found then
+    raise exception 'Match introuvable';
+  end if;
+
+  if v_match.winner is not null then
+    raise exception 'Ce match est deja resolu, impossible de l''annuler';
+  end if;
+
+  if v_match.cancelled_at is not null then
+    raise exception 'Ce match est deja annule';
+  end if;
+
+  update public.matches set cancelled_at = now() where id = p_match_id;
+
+  for v_pred in
+    select * from public.predictions
+    where match_id = p_match_id and status = 'pending'
+    for update
+  loop
+    update public.profiles
+      set points = points + v_pred.stake
+      where id = v_pred.user_id;
+
+    if v_pred.insurance_boost_id is not null then
+      update public.profile_boosts
+        set status = 'pending', consumed_at = null
+        where id = v_pred.insurance_boost_id;
+    end if;
+
+    if v_pred.gain_boost_id is not null then
+      update public.profile_boosts
+        set status = 'pending', consumed_at = null
+        where id = v_pred.gain_boost_id;
+    end if;
+
+    if v_pred.pr_gamble_boost_id is not null then
+      update public.profile_boosts
+        set status = 'pending', consumed_at = null
+        where id = v_pred.pr_gamble_boost_id;
+    end if;
+
+    if v_pred.xp_boost_id is not null then
+      update public.profile_boosts
+        set status = 'pending', consumed_at = null, uses_remaining = uses_remaining + 1
+        where id = v_pred.xp_boost_id;
+    end if;
+
+    update public.predictions
+      set status = 'cancelled', resolved_at = now()
+      where id = v_pred.id;
+  end loop;
+end;
+$$;
+
+grant execute on function public.cancel_match(bigint) to authenticated;
 
 create table if not exists public.title_catalog (
   name text primary key,

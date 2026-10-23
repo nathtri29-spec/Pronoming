@@ -138,7 +138,9 @@ export default function ClubMembersPage() {
         .not("resolved_at", "is", null)
 
       const resolved = allPreds || []
-      const seasonResolved = resolved.filter((p) => new Date(p.resolved_at) >= seasonStart)
+      const seasonResolved = resolved.filter(
+        (p) => (p.status === "won" || p.status === "lost") && new Date(p.resolved_at) >= seasonStart
+      )
 
       const won = seasonResolved.filter((p) => p.status === "won").length
       setWinRate(seasonResolved.length > 0 ? Math.round((won / seasonResolved.length) * 100) : null)

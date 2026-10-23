@@ -23,6 +23,7 @@ import {
   Award,
   LogOut,
   Users,
+  Undo2,
 } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -449,22 +450,29 @@ async function logout() {
             {predictions.slice(0, 5).map((prediction) => {
               const isWon = prediction.status === "won"
               const isLost = prediction.status === "lost"
+              const isCancelled = prediction.status === "cancelled"
 
-              const Icon = isWon ? Trophy : isLost ? TrendingDown : Clock
+              const Icon = isWon ? Trophy : isLost ? TrendingDown : isCancelled ? Undo2 : Clock
               const color = isWon
                 ? "text-green-400"
                 : isLost
                 ? "text-red-400"
+                : isCancelled
+                ? "text-zinc-400"
                 : "text-purple-300"
               const bg = isWon
                 ? "bg-green-500/10"
                 : isLost
                 ? "bg-red-500/10"
+                : isCancelled
+                ? "bg-zinc-500/10"
                 : "bg-purple-500/10"
               const border = isWon
                 ? "border-green-500/30"
                 : isLost
                 ? "border-red-500/30"
+                : isCancelled
+                ? "border-zinc-500/30"
                 : "border-purple-500/30"
 
               let gain = Math.round(prediction.stake * prediction.odds)
@@ -480,6 +488,8 @@ async function logout() {
                 ? `+${gain} pts`
                 : isLost
                 ? `-${prediction.stake} pts`
+                : isCancelled
+                ? `+${prediction.stake} pts remboursés`
                 : "En attente"
 
               const xpText = isWon ? `+${xpGain} XP` : isLost ? `+${lossXp} XP` : null
