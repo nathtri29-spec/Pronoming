@@ -59,14 +59,43 @@ create policy "matches_select_all"
   to authenticated
   using (true);
 
+alter table public.profiles
+  add column if not exists season_level integer not null default 1;
+
+alter table public.profiles
+  add column if not exists season_xp integer not null default 0;
+
+alter table public.profiles
+  add column if not exists referred_by uuid references auth.users(id);
+
+update public.profiles
+  set season_level = level, season_xp = xp
+  where season_level = 1 and season_xp = 0 and level > 1;
+
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
 security definer
 set search_path = public
 as $$
+declare
+  v_referred_by uuid;
 begin
-  insert into public.profiles (id, username, points, xp, level, onboarding_completed, is_admin)
+  begin
+    v_referred_by := (new.raw_user_meta_data->>'referred_by')::uuid;
+  exception when others then
+    v_referred_by := null;
+  end;
+
+  if v_referred_by = new.id then
+    v_referred_by := null;
+  end if;
+
+  if v_referred_by is not null and not exists (select 1 from public.profiles where id = v_referred_by) then
+    v_referred_by := null;
+  end if;
+
+  insert into public.profiles (id, username, points, xp, level, onboarding_completed, is_admin, referred_by)
   values (
     new.id,
     coalesce(nullif(split_part(new.email, '@', 1), ''), 'player'),
@@ -74,9 +103,14 @@ begin
     0,
     1,
     false,
-    false
+    false,
+    v_referred_by
   )
   on conflict (id) do nothing;
+
+  if v_referred_by is not null then
+    update public.profiles set points = points + 200 where id = v_referred_by;
+  end if;
 
   return new;
 end;
@@ -261,7 +295,7 @@ begin
     raise exception 'Tu as deja pronostique ce match';
   end if;
 
-  v_max_percent := least(0.15 + floor((v_profile.level - 1) / 5) * 0.02, 0.25);
+  v_max_percent := least(0.15 + floor((v_profile.season_level - 1) / 5) * 0.02, 0.25);
   v_max_stake := floor(v_profile.points * v_max_percent);
 
   if p_stake > v_profile.points then
@@ -443,11 +477,15 @@ declare
   v_xp_gain integer;
   v_current_xp integer;
   v_current_level integer;
+  v_current_season_xp integer;
+  v_current_season_level integer;
   v_current_streak integer;
   v_current_total_wins integer;
   v_current_rating integer;
   v_new_xp integer;
   v_new_level integer;
+  v_new_season_xp integer;
+  v_new_season_level integer;
   v_new_streak integer;
   v_new_total_wins integer;
   v_new_rating integer;
@@ -483,8 +521,9 @@ begin
     where match_id = p_match_id and status = 'pending'
     for update
   loop
-    select xp, level, win_streak, total_wins, rating
-      into v_current_xp, v_current_level, v_current_streak, v_current_total_wins, v_current_rating
+    select xp, level, season_xp, season_level, win_streak, total_wins, rating
+      into v_current_xp, v_current_level, v_current_season_xp, v_current_season_level,
+           v_current_streak, v_current_total_wins, v_current_rating
       from public.profiles where id = v_pred.user_id for update;
 
     v_rating_multiplier := case
@@ -526,6 +565,13 @@ begin
         v_new_level := v_new_level + 1;
       end loop;
 
+      v_new_season_xp := v_current_season_xp + v_xp_gain;
+      v_new_season_level := v_current_season_level;
+
+      while v_new_season_xp >= (v_new_season_level * (v_new_season_level + 1) * 100) / 2 loop
+        v_new_season_level := v_new_season_level + 1;
+      end loop;
+
       v_new_streak := v_current_streak + 1;
       v_new_total_wins := v_current_total_wins + 1;
       v_new_rating := v_current_rating + v_rating_gain;
@@ -534,14 +580,16 @@ begin
         set points = points + v_gain,
             xp = v_new_xp,
             level = v_new_level,
+            season_xp = v_new_season_xp,
+            season_level = v_new_season_level,
             win_streak = v_new_streak,
             total_wins = v_new_total_wins,
             rating = v_new_rating
         where id = v_pred.user_id;
 
-      if v_new_level > v_current_level then
+      if v_new_season_level > v_current_season_level then
         insert into public.profile_level_events (user_id, new_level)
-        values (v_pred.user_id, v_new_level);
+        values (v_pred.user_id, v_new_season_level);
       end if;
 
       if public.rank_tier(v_new_rating) <> public.rank_tier(v_current_rating) then
@@ -586,6 +634,13 @@ begin
         v_new_level := v_new_level + 1;
       end loop;
 
+      v_new_season_xp := v_current_season_xp + v_xp_gain;
+      v_new_season_level := v_current_season_level;
+
+      while v_new_season_xp >= (v_new_season_level * (v_new_season_level + 1) * 100) / 2 loop
+        v_new_season_level := v_new_season_level + 1;
+      end loop;
+
       v_rating_loss := case
         when v_current_rating >= 1800 then 20
         when v_current_rating >= 1400 then 5
@@ -605,14 +660,16 @@ begin
       update public.profiles
         set xp = v_new_xp,
             level = v_new_level,
+            season_xp = v_new_season_xp,
+            season_level = v_new_season_level,
             win_streak = 0,
             rating = v_new_rating,
             points = points + v_insurance_refund
         where id = v_pred.user_id;
 
-      if v_new_level > v_current_level then
+      if v_new_season_level > v_current_season_level then
         insert into public.profile_level_events (user_id, new_level)
-        values (v_pred.user_id, v_new_level);
+        values (v_pred.user_id, v_new_season_level);
       end if;
 
       if v_new_level >= 10 then
@@ -1057,11 +1114,17 @@ begin
     if not (v_owned ? v_title) then
       update public.profiles
         set owned_titles = (v_owned || to_jsonb(v_title))::text,
-            rating = v_new_rating
+            rating = v_new_rating,
+            points = 1000,
+            season_level = 1,
+            season_xp = 0
         where id = v_profile.id;
     else
       update public.profiles
-        set rating = v_new_rating
+        set rating = v_new_rating,
+            points = 1000,
+            season_level = 1,
+            season_xp = 0
         where id = v_profile.id;
     end if;
   end loop;

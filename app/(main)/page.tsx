@@ -8,7 +8,7 @@ import { RewardPopup } from "@/components/reward-popup"
 import { WinRecapModal, type WonRecapItem } from "@/components/win-recap-modal"
 import { HomeSkeleton } from "@/components/home-skeleton"
 import { useRouter } from "next/navigation"
-import { FileText, Gamepad2, Check, Flame, ChevronDown } from "lucide-react"
+import { FileText, Gamepad2, Check, Flame, ChevronDown, Gift } from "lucide-react"
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion"
 import { getRatingMultiplier } from "@/lib/rank"
 import { useScrollLock } from "@/lib/use-scroll-lock"
@@ -187,16 +187,29 @@ export default function Home() {
     await supabase.rpc("mark_wins_seen")
   }
 
+  async function copyReferralLink() {
+    if (!user) return
+
+    const link = `${window.location.origin}/login?ref=${user.id}`
+
+    try {
+      await navigator.clipboard.writeText(link)
+      toast.success("Lien d'invitation copié !")
+    } catch {
+      toast.error("Impossible de copier le lien")
+    }
+  }
+
   function xpProgress() {
     if (!profile) return 0
 
     const currentLevelXp =
-      ((profile.level - 1) * profile.level * 100) / 2
+      ((profile.season_level - 1) * profile.season_level * 100) / 2
 
     const nextLevelXp =
-      (profile.level * (profile.level + 1) * 100) / 2
+      (profile.season_level * (profile.season_level + 1) * 100) / 2
 
-    return ((profile.xp - currentLevelXp) / (nextLevelXp - currentLevelXp)) * 100
+    return ((profile.season_xp - currentLevelXp) / (nextLevelXp - currentLevelXp)) * 100
   }
 
   function openPrediction(match: any, team: string, odds: number) {
@@ -205,7 +218,7 @@ export default function Home() {
       return
     }
 
-    const maxStake = getMaxStake(profile.points, profile.level)
+    const maxStake = getMaxStake(profile.points, profile.season_level)
 
     setSelectedMatch(match)
     setSelectedTeam(team)
@@ -230,7 +243,7 @@ export default function Home() {
       return
     }
 
-    const maxStake = getMaxStake(profile.points, profile.level)
+    const maxStake = getMaxStake(profile.points, profile.season_level)
 
     if (stake > maxStake) {
       toast.error(`Mise maximum autorisée : ${maxStake} points`)
@@ -276,7 +289,7 @@ setTimeout(() => {
     if (user) loadUserData(user.id)
   }
 
-  const maxStake = profile ? getMaxStake(profile.points, profile.level) : 0
+  const maxStake = profile ? getMaxStake(profile.points, profile.season_level) : 0
 
   const displayedMatches = selectedGame
     ? matches.filter((m) => m.game === selectedGame)
@@ -321,9 +334,9 @@ setTimeout(() => {
 
   <div className="mt-4">
           <div className="mb-1 flex justify-between text-xs uppercase tracking-wider text-zinc-500">
-            <span className="font-bold text-purple-400">Saison {seasonNumber ?? "-"} · LV {profile?.level ?? 1}</span>
+            <span className="font-bold text-purple-400">Saison {seasonNumber ?? "-"} · LV {profile?.season_level ?? 1}</span>
             <span className="tabular-nums">
-              <AnimatedNumber value={profile?.xp ?? 0} /> XP
+              <AnimatedNumber value={profile?.season_xp ?? 0} /> XP
             </span>
           </div>
 
@@ -332,6 +345,26 @@ setTimeout(() => {
       </div>
 
       <main className="px-4 py-5">
+        {profile && profile.points < 50 && (
+          <button
+            onClick={copyReferralLink}
+            className="mb-5 flex w-full items-center gap-3 rounded-2xl border border-purple-500/40 bg-gradient-to-r from-purple-900/30 to-red-900/20 p-4 text-left"
+          >
+            <Gift className="h-6 w-6 shrink-0 text-purple-300" strokeWidth={2.2} />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-black text-white">
+                Plus beaucoup de points ? Invite un ami !
+              </p>
+              <p className="text-xs font-semibold text-zinc-400">
+                +200 points dès qu'il s'inscrit avec ton lien
+              </p>
+            </div>
+            <span className="shrink-0 rounded-full bg-purple-600 px-3 py-1.5 text-xs font-bold text-white">
+              Copier le lien
+            </span>
+          </button>
+        )}
+
         <div className="mb-4 flex items-center justify-between">
           <h2 className="flex items-center gap-2 text-xl font-bold">
             <Flame className="h-5 w-5 text-orange-400" strokeWidth={2.5} />

@@ -373,7 +373,7 @@ export default function ClubMembersPage() {
                     )}
                   </p>
                   <p className="text-[10px] font-bold text-zinc-500">
-                    Niveau {member.level ?? 1} · {game ?? "—"}
+                    Niveau {member.season_level ?? 1} · {game ?? "—"}
                   </p>
                 </div>
 

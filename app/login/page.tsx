@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { motion } from "framer-motion"
@@ -25,7 +25,13 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [showForgotPassword, setShowForgotPassword] = useState(false)
   const [resetSent, setResetSent] = useState(false)
+  const [referredBy, setReferredBy] = useState<string | null>(null)
   const router = useRouter()
+
+  useEffect(() => {
+    const ref = new URLSearchParams(window.location.search).get("ref")
+    if (ref) setReferredBy(ref)
+  }, [])
 
   const handleForgotPassword = async () => {
     setError(null)
@@ -58,6 +64,7 @@ export default function LoginPage() {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
+      options: referredBy ? { data: { referred_by: referredBy } } : undefined,
     })
 
     setLoading(null)
@@ -158,6 +165,16 @@ export default function LoginPage() {
           <p className="mt-1 text-sm text-zinc-600">
             Quand les pronostics rencontrent le gaming
           </p>
+
+          {referredBy && (
+            <motion.div
+              initial={{ opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-5 inline-flex items-center gap-2 rounded-full border border-purple-500/40 bg-purple-500/10 px-4 py-2 text-sm font-bold text-purple-300"
+            >
+              🎉 Tu as été invité sur Pronoming !
+            </motion.div>
+          )}
         </div>
 
         <div className="rounded-3xl border border-white/10 bg-zinc-950 p-6 shadow-[0_0_30px_rgba(124,58,237,0.15)]">

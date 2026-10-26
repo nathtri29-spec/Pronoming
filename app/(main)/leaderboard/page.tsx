@@ -249,7 +249,7 @@ export default function LeaderboardPage() {
       <div className="mt-0.5 flex items-center gap-1.5">
         <RankBadge rank={playerRank.name} size={16} intensity={0.4} />
         <p className="text-[11px] font-bold uppercase tracking-wider text-zinc-500">
-          LV {player.level ?? 1} · <RankName rank={playerRank} />
+          LV {player.season_level ?? 1} · <RankName rank={playerRank} />
         </p>
       </div>
     </div>

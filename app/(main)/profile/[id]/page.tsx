@@ -398,7 +398,7 @@ export default function PublicProfilePage() {
             <div className="min-w-0 flex-1">
               <RankName rank={rank} className="block truncate text-xl font-black uppercase tracking-wide" />
               <p className="mt-0.5 text-xs font-semibold" style={{ color: "rgba(255,255,255,0.45)" }}>
-                Niveau {profile.level ?? 1}
+                Niveau {profile.season_level ?? 1}
               </p>
             </div>
 

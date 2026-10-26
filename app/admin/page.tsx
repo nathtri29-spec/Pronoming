@@ -246,9 +246,25 @@ export default function AdminPage() {
               className="rounded-2xl border border-white/10 bg-zinc-950/90 p-4"
             >
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-black text-white">
-                  {match.team_a} <span className="text-zinc-600">vs</span> {match.team_b}
-                </h2>
+                <div>
+                  <h2 className="text-lg font-black text-white">
+                    {match.team_a} <span className="text-zinc-600">vs</span> {match.team_b}
+                  </h2>
+
+                  <p className="mt-0.5 text-xs font-semibold text-zinc-500">
+                    {match.game ?? "Rocket League"} ·{" "}
+                    {new Date(match.start_time).toLocaleDateString("fr-FR", {
+                      day: "2-digit",
+                      month: "2-digit",
+                      year: "numeric",
+                    })}{" "}
+                    à{" "}
+                    {new Date(match.start_time).toLocaleTimeString("fr-FR", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </p>
+                </div>
 
                 {match.winner ? (
                   <span className="flex items-center gap-1 rounded-full border border-green-400/40 bg-green-500/10 px-2.5 py-1 text-[10px] font-bold text-green-300">

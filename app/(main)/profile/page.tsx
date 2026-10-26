@@ -24,6 +24,7 @@ import {
   LogOut,
   Users,
   Undo2,
+  Infinity as InfinityIcon,
 } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -143,12 +144,12 @@ export default function ProfilePage() {
   const rank = getRankFromRating(getRating(profile))
   const currentTitleStyle = getTitleStyle(profile.selected_title)
   const TitleIcon = currentTitleStyle.icon
-  const currentLevelXp = ((profile.level - 1) * profile.level * 100) / 2
-  const nextLevelXp = (profile.level * (profile.level + 1) * 100) / 2
-  const progressXp = profile.xp - currentLevelXp
+  const currentLevelXp = ((profile.season_level - 1) * profile.season_level * 100) / 2
+  const nextLevelXp = (profile.season_level * (profile.season_level + 1) * 100) / 2
+  const progressXp = profile.season_xp - currentLevelXp
   const xpNeeded = nextLevelXp - currentLevelXp
   const progressPercent = (progressXp / xpNeeded) * 100
-  const maxStakePercent = Math.round(getMaxStakePercent(profile.level) * 100)
+  const maxStakePercent = Math.round(getMaxStakePercent(profile.season_level) * 100)
   const unclaimedCount = achievements.filter(
     (a) => getAchievementStatus(a.key) === "unclaimed"
   ).length
@@ -330,7 +331,7 @@ async function logout() {
     </h2>
 
     <span className="rounded-full border border-purple-500/40 bg-purple-500/10 px-2.5 py-1 text-xs font-bold text-purple-300">
-      LV {profile.level}
+      LV {profile.season_level}
     </span>
   </div>
 )}
@@ -364,6 +365,13 @@ async function logout() {
           </div>
 
           <XpBar progress={progressPercent} />
+
+          <div className="mt-3 flex items-center justify-center gap-1.5">
+            <InfinityIcon className="h-3.5 w-3.5 text-zinc-500" strokeWidth={2.2} />
+            <span className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+              Niveau all-time : {profile.level}
+            </span>
+          </div>
         </div>
       </div>
 
