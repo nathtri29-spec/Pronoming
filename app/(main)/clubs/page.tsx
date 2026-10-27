@@ -289,7 +289,7 @@ export default function ClubsPage() {
 
     const { data: matchesData } = await supabase
       .from("matches")
-      .select("id, team_a, team_b, odds_team_a, odds_team_b, game, winner, cancelled_at")
+      .select("id, team_a, team_b, odds_team_a, odds_team_b, odds_mode, game, winner, cancelled_at")
 
     const byId: Record<number, any> = {}
     for (const m of matchesData || []) byId[m.id] = m
@@ -739,10 +739,16 @@ export default function ClubsPage() {
                               <p className="mt-1 text-sm font-bold text-white">
                                 {sharedMatch.team_a} <span className="text-zinc-500">vs</span> {sharedMatch.team_b}
                               </p>
-                              <div className="mt-1.5 flex gap-3 text-[11px] font-semibold text-zinc-400">
-                                <span>{sharedMatch.team_a} · {Number(sharedMatch.odds_team_a).toFixed(2)}</span>
-                                <span>{sharedMatch.team_b} · {Number(sharedMatch.odds_team_b).toFixed(2)}</span>
-                              </div>
+                              {sharedMatch.odds_mode === "community" ? (
+                                <p className="mt-1.5 text-[11px] font-semibold text-purple-300">
+                                  Cote communautaire
+                                </p>
+                              ) : (
+                                <div className="mt-1.5 flex gap-3 text-[11px] font-semibold text-zinc-400">
+                                  <span>{sharedMatch.team_a} · {Number(sharedMatch.odds_team_a).toFixed(2)}</span>
+                                  <span>{sharedMatch.team_b} · {Number(sharedMatch.odds_team_b).toFixed(2)}</span>
+                                </div>
+                              )}
                             </>
                           ) : (
                             <p className="text-xs text-zinc-500">Match indisponible</p>

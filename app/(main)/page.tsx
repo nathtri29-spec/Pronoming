@@ -15,6 +15,7 @@ import { useScrollLock } from "@/lib/use-scroll-lock"
 import { boostDefs, type BoostKey } from "@/lib/boost-styles"
 import { AnimatedNumber } from "@/components/animated-number"
 import { getMaxStake } from "@/lib/economy"
+import { computeCommunityOdds } from "@/lib/odds"
 import { useToast } from "@/components/toast-provider"
 import { useProfile } from "@/components/profile-provider"
 import { GAMES } from "@/lib/games"
@@ -63,6 +64,7 @@ export default function Home() {
   const [selectedBoosts, setSelectedBoosts] = useState<Set<BoostKey>>(new Set())
   const [selectedGame, setSelectedGame] = useState<string | null>(null)
   const [showGameMenu, setShowGameMenu] = useState(false)
+  const [pendingStakesByMatch, setPendingStakesByMatch] = useState<Record<number, { a: number; b: number }>>({})
   const [winRecap, setWinRecap] = useState<WonRecapItem[] | null>(null)
   const sheetPanelRef = useScrollLock(!!selectedMatch)
   const reduceMotion = useReducedMotion()
@@ -107,6 +109,39 @@ export default function Home() {
   .order("start_time", { ascending: true })
 
     if (matchesData) setMatches(matchesData)
+
+    const communityMatchIds = (matchesData || [])
+      .filter((m) => m.odds_mode === "community")
+      .map((m) => m.id)
+
+    if (communityMatchIds.length > 0) {
+      const { data: pendingPreds } = await supabase
+        .from("predictions")
+        .select("match_id, selected_team, stake")
+        .in("match_id", communityMatchIds)
+        .eq("status", "pending")
+
+      const stakes: Record<number, { a: number; b: number }> = {}
+
+      for (const match of matchesData || []) {
+        if (match.odds_mode !== "community") continue
+
+        let a = 0
+        let b = 0
+
+        for (const p of pendingPreds || []) {
+          if (p.match_id !== match.id) continue
+          if (p.selected_team === match.team_a) a += p.stake
+          else if (p.selected_team === match.team_b) b += p.stake
+        }
+
+        stakes[match.id] = { a, b }
+      }
+
+      setPendingStakesByMatch(stakes)
+    } else {
+      setPendingStakesByMatch({})
+    }
 
     const { data: seasonData } = await supabase
       .from("seasons")
@@ -291,9 +326,16 @@ setTimeout(() => {
 
   const maxStake = profile ? getMaxStake(profile.points, profile.season_level) : 0
 
-  const displayedMatches = selectedGame
-    ? matches.filter((m) => m.game === selectedGame)
-    : matches
+  const displayedMatches = (selectedGame ? matches.filter((m) => m.game === selectedGame) : matches).map(
+    (match) => {
+      if (match.odds_mode !== "community") return match
+
+      const stakes = pendingStakesByMatch[match.id] ?? { a: 0, b: 0 }
+      const { oddsA, oddsB } = computeCommunityOdds(stakes.a, stakes.b)
+
+      return { ...match, odds_team_a: oddsA, odds_team_b: oddsB }
+    }
+  )
 
   if (profileLoading || loading) {
   return <HomeSkeleton />
@@ -504,9 +546,21 @@ const startsSoon = !isLive && date.getTime() - Date.now() < 2 * 60 * 60 * 1000
                 <div className="absolute left-0 top-0 h-1 w-full bg-gradient-to-r from-purple-600 to-red-600" />
 
                 <div className="mb-4 flex items-start justify-between">
-  <span className="text-xs font-bold uppercase tracking-widest text-zinc-500">
-    {match.game ?? "Rocket League"} · {match.Tournament || "RLCS"}
-  </span>
+  <div>
+    <span className="text-xs font-bold uppercase tracking-widest text-zinc-500">
+      {match.game ?? "Rocket League"} · {match.Tournament || "RLCS"}
+    </span>
+
+    {match.odds_mode === "community" && (
+      <div className="mt-1 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-purple-300">
+        <span className="relative flex h-1.5 w-1.5">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-purple-400 opacity-75" />
+          <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-purple-400" />
+        </span>
+        Cote communautaire
+      </div>
+    )}
+  </div>
 
   <div className="text-right">
     <p className="text-xs font-semibold uppercase text-zinc-400">

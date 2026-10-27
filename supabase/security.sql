@@ -215,6 +215,29 @@ alter table public.predictions
   add constraint predictions_status_check
   check (status in ('pending', 'won', 'lost', 'cancelled'));
 
+alter table public.matches
+  add column if not exists odds_mode text not null default 'fixed';
+
+alter table public.matches
+  drop constraint if exists matches_odds_mode_check;
+
+alter table public.matches
+  add constraint matches_odds_mode_check
+  check (odds_mode in ('fixed', 'community'));
+
+alter table public.matches
+  alter column odds_team_a drop not null;
+
+alter table public.matches
+  alter column odds_team_b drop not null;
+
+alter table public.matches
+  drop constraint if exists matches_odds_required_for_fixed;
+
+alter table public.matches
+  add constraint matches_odds_required_for_fixed
+  check (odds_mode = 'community' or (odds_team_a is not null and odds_team_b is not null));
+
 create or replace function public.place_prediction(
   p_match_id bigint,
   p_selected_team text,
@@ -236,6 +259,9 @@ declare
   v_max_percent numeric;
   v_max_stake integer;
   v_odds numeric;
+  v_stake_a integer;
+  v_stake_b integer;
+  v_pool numeric;
   v_existing integer;
   v_prediction public.predictions%rowtype;
   v_total_predictions integer;
@@ -279,12 +305,32 @@ begin
     raise exception 'Les paris sont fermes, ce match a deja commence';
   end if;
 
-  if p_selected_team = v_match.team_a then
-    v_odds := v_match.odds_team_a;
-  elsif p_selected_team = v_match.team_b then
-    v_odds := v_match.odds_team_b;
-  else
+  if p_selected_team <> v_match.team_a and p_selected_team <> v_match.team_b then
     raise exception 'Equipe invalide';
+  end if;
+
+  if v_match.odds_mode = 'community' then
+    select coalesce(sum(stake), 0) into v_stake_a
+      from public.predictions
+      where match_id = p_match_id and status = 'pending' and selected_team = v_match.team_a;
+
+    select coalesce(sum(stake), 0) into v_stake_b
+      from public.predictions
+      where match_id = p_match_id and status = 'pending' and selected_team = v_match.team_b;
+
+    v_pool := 200 * 2 + v_stake_a + v_stake_b;
+
+    if p_selected_team = v_match.team_a then
+      v_odds := greatest(1.05, least(10, v_pool / (200 + v_stake_a)));
+    else
+      v_odds := greatest(1.05, least(10, v_pool / (200 + v_stake_b)));
+    end if;
+  else
+    if p_selected_team = v_match.team_a then
+      v_odds := v_match.odds_team_a;
+    else
+      v_odds := v_match.odds_team_b;
+    end if;
   end if;
 
   select count(*) into v_existing
