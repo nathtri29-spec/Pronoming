@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
+import { Inbox } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { BoostChips } from "@/components/boost-chip"
 import { PredictionsSkeleton } from "@/components/predictions-skeleton"
@@ -91,6 +92,25 @@ export default function PredictionsPage() {
 </div>
 
 <div className="space-y-3">
+  {filteredPredictions.length === 0 && (
+    <div className="flex flex-col items-center gap-3 rounded-2xl border border-white/10 bg-black/20 p-8 text-center">
+      <Inbox className="h-8 w-8 text-zinc-600" strokeWidth={1.5} />
+      <p className="text-sm text-zinc-500">
+        {predictions.length === 0
+          ? "Tu n'as encore fait aucun pronostic"
+          : "Aucun pronostic dans cette catégorie"}
+      </p>
+      {predictions.length === 0 && (
+        <button
+          onClick={() => router.push("/")}
+          className="rounded-xl bg-gradient-to-r from-purple-600 to-red-600 px-5 py-2.5 text-sm font-bold text-white"
+        >
+          Voir les matchs
+        </button>
+      )}
+    </div>
+  )}
+
   {filteredPredictions.map((prediction) => {
           const isWon = prediction.status === "won"
           const isLost = prediction.status === "lost"

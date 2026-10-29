@@ -1,7 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
+import Image from "next/image"
 import { supabase } from "@/lib/supabase"
 import { Rocket, Target, Zap, Gem, Trophy } from "lucide-react"
 import { motion, useReducedMotion } from "framer-motion"
@@ -42,8 +43,27 @@ const slides = [
 export default function OnboardingPage() {
   const [step, setStep] = useState(0)
   const [isExiting, setIsExiting] = useState(false)
+  const [showUsernameStep, setShowUsernameStep] = useState(false)
+  const [username, setUsername] = useState("")
+  const [usernameError, setUsernameError] = useState<string | null>(null)
+  const [savingUsername, setSavingUsername] = useState(false)
   const reduceMotion = useReducedMotion()
   const router = useRouter()
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return
+
+      supabase
+        .from("profiles")
+        .select("username")
+        .eq("id", user.id)
+        .single()
+        .then(({ data }) => {
+          if (data?.username) setUsername(data.username)
+        })
+    })
+  }, [])
 
   const containerVariants = {
     enter: {},
@@ -80,6 +100,41 @@ export default function OnboardingPage() {
   const isLast = step === slides.length - 1
   const SlideIcon = slide.icon
 
+  async function saveUsername() {
+    const trimmed = username.trim()
+
+    if (trimmed.length < 2 || trimmed.length > 20) {
+      setUsernameError("Le pseudo doit faire entre 2 et 20 caractères")
+      return
+    }
+
+    setUsernameError(null)
+    setSavingUsername(true)
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) {
+      setSavingUsername(false)
+      return
+    }
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({ username: trimmed })
+      .eq("id", user.id)
+
+    setSavingUsername(false)
+
+    if (error) {
+      setUsernameError(error.code === "23505" ? "Ce pseudo est déjà pris" : error.message)
+      return
+    }
+
+    await finishOnboarding()
+  }
+
   async function finishOnboarding() {
     setIsExiting(true)
 
@@ -111,6 +166,62 @@ export default function OnboardingPage() {
         transition={{ duration: reduceMotion ? 0.15 : 0.35, ease: "easeIn" }}
         className="flex w-full flex-col items-center"
       >
+      {showUsernameStep ? (
+        <motion.div
+          initial={reduceMotion ? { opacity: 1 } : { opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, ease: "easeOut" }}
+          className="flex w-full max-w-sm flex-col items-center"
+        >
+          <motion.div
+            animate={reduceMotion ? undefined : { y: [0, -8, 0] }}
+            transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+          >
+            <Image
+              src="/mascot/mascot.PNG"
+              alt="Mascotte Pronoming"
+              width={200}
+              height={200}
+              className="h-[180px] w-auto object-contain"
+            />
+          </motion.div>
+
+          <h1
+            className="mt-4 mb-2 inline-block bg-clip-text text-3xl font-extrabold text-transparent"
+            style={{ backgroundImage: "linear-gradient(to right, #c084fc, #dc2626 80%)" }}
+          >
+            CHOISIS TON PSEUDO
+          </h1>
+
+          <p className="mb-6 max-w-sm text-zinc-400">
+            C'est comme ça que les autres joueurs te reconnaîtront sur le classement, dans les clubs et le chat.
+          </p>
+
+          <input
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            maxLength={20}
+            placeholder="Ton pseudo"
+            autoFocus
+            className="w-full rounded-xl border border-zinc-700 bg-black p-4 text-center text-white outline-none focus:border-purple-500"
+          />
+
+          {usernameError && (
+            <p className="mt-3 text-sm font-bold text-red-400">{usernameError}</p>
+          )}
+
+          <motion.button
+            disabled={savingUsername}
+            whileTap={{ scale: 0.96 }}
+            transition={{ type: "spring", stiffness: 400, damping: 17 }}
+            onClick={saveUsername}
+            className="mt-6 w-full rounded-xl bg-gradient-to-r from-purple-600 to-red-600 p-4 font-extrabold disabled:opacity-60"
+          >
+            {savingUsername ? "..." : "ENTRER DANS L’ARÈNE →"}
+          </motion.button>
+        </motion.div>
+      ) : (
+        <>
       <div className="mb-6 flex gap-2">
         {slides.map((_, index) => (
           <motion.div
@@ -163,16 +274,16 @@ export default function OnboardingPage() {
         disabled={isExiting}
         whileTap={{ scale: 0.96 }}
         transition={{ type: "spring", stiffness: 400, damping: 17 }}
-        onClick={async () => {
+        onClick={() => {
           if (isLast) {
-            await finishOnboarding()
+            setShowUsernameStep(true)
           } else {
             setStep(step + 1)
           }
         }}
         className="w-full max-w-sm rounded-xl bg-gradient-to-r from-purple-600 to-red-600 p-4 font-extrabold disabled:opacity-60"
       >
-        {isLast ? "ENTRER DANS L’ARÈNE →" : "CONTINUER →"}
+        CONTINUER →
       </motion.button>
 
       {step > 0 && (
@@ -184,6 +295,8 @@ export default function OnboardingPage() {
         >
           Passer l’introduction
         </motion.button>
+      )}
+        </>
       )}
       </motion.div>
     </div>

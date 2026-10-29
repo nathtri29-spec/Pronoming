@@ -354,6 +354,13 @@ export default function StatsPage() {
               className="h-[280px] w-auto object-contain"
             />
           </motion.div>
+
+          <button
+            onClick={() => router.push("/")}
+            className="mt-2 rounded-xl bg-gradient-to-r from-purple-600 to-red-600 px-5 py-2.5 text-sm font-bold text-white"
+          >
+            Faire mon premier pronostic
+          </button>
         </div>
       )}
 

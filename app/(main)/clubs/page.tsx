@@ -21,6 +21,8 @@ import {
   ChevronRight,
   Swords,
   Users,
+  ArrowLeft,
+  Search,
 } from "lucide-react"
 
 const gridVariants = {
@@ -64,6 +66,8 @@ export default function ClubsPage() {
   const [myOutgoingRequests, setMyOutgoingRequests] = useState<number[]>([])
 
   const [showCreate, setShowCreate] = useState(false)
+  const [showJoinBrowser, setShowJoinBrowser] = useState(false)
+  const [clubSearch, setClubSearch] = useState("")
   const [newName, setNewName] = useState("")
   const [newPolicy, setNewPolicy] = useState<"open" | "request" | "friends_only">("request")
   const [busy, setBusy] = useState(false)
@@ -344,6 +348,8 @@ export default function ClubsPage() {
       return
     }
 
+    setShowJoinBrowser(false)
+    setClubSearch("")
     await fetchAll()
   }
 
@@ -592,6 +598,68 @@ export default function ClubsPage() {
                 </button>
               </div>
             </div>
+          ) : showJoinBrowser ? (
+            <div className="text-left">
+              <button
+                onClick={() => {
+                  setShowJoinBrowser(false)
+                  setClubSearch("")
+                }}
+                className="mb-4 flex items-center gap-2 text-sm font-bold text-zinc-400"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Retour
+              </button>
+
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+                <input
+                  value={clubSearch}
+                  onChange={(e) => setClubSearch(e.target.value)}
+                  placeholder="Rechercher un club..."
+                  autoFocus
+                  className="w-full rounded-xl border border-zinc-700 bg-black p-3 pl-10 text-white outline-none focus:border-purple-500"
+                />
+              </div>
+
+              <div className="mt-4 space-y-2">
+                {rankedClubs
+                  .map((club, index) => ({ club, rank: index + 1 }))
+                  .filter(({ club }) => club.name.toLowerCase().includes(clubSearch.trim().toLowerCase()))
+                  .map(({ club, rank }) => {
+                    const power = powerByClub[club.id] ?? { total: 0, count: 0 }
+                    const colors = clubColor(club.name)
+
+                    return (
+                      <div
+                        key={club.id}
+                        className="flex items-center gap-3 rounded-2xl border border-white/10 bg-zinc-950/90 p-3"
+                      >
+                        <div
+                          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xs font-black"
+                          style={{ background: colors.bg, color: colors.text }}
+                        >
+                          {clubInitials(club.name)}
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-bold text-white">{club.name}</p>
+                          <p className="text-[10px] font-bold text-zinc-500">
+                            {power.count} membre{power.count > 1 ? "s" : ""} · Rang #{rank}
+                          </p>
+                        </div>
+
+                        {renderJoinButton(club)}
+                      </div>
+                    )
+                  })}
+
+                {rankedClubs.filter((c) => c.name.toLowerCase().includes(clubSearch.trim().toLowerCase()))
+                  .length === 0 && (
+                  <p className="py-8 text-center text-sm text-zinc-500">Aucun club trouvé</p>
+                )}
+              </div>
+            </div>
           ) : (
             <div className="flex flex-col items-center pt-4 text-center">
               <div
@@ -607,7 +675,7 @@ export default function ClubsPage() {
 
               <div className="mt-5 flex w-full flex-col gap-2.5">
                 <button
-                  onClick={() => setTab("ranking")}
+                  onClick={() => setShowJoinBrowser(true)}
                   className="flex items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-bold text-white"
                   style={{ background: "linear-gradient(135deg, #7c3aed, #dc2626)" }}
                 >
