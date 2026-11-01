@@ -199,3 +199,20 @@
   color: transparent;
   animation: border-spin 3s linear infinite;
 }
+
+@keyframes odds-shimmer {
+  to {
+    background-position: 200% 50%;
+  }
+}
+
+/* Degrade violet/rouge des cotes, anime en glissement continu. */
+.odds-gradient-text {
+  background: linear-gradient(90deg, #c084fc, #ef4444, #c084fc);
+  background-size: 200% auto;
+  background-position: 0% 50%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  animation: odds-shimmer 3s linear infinite;
+}

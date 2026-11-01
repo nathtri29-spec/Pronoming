@@ -16,7 +16,7 @@ import { useRouter } from "next/navigation"
 import { useScrollLock } from "@/lib/use-scroll-lock"
 import { useProfile } from "@/components/profile-provider"
 
-type Tab = "league" | "global"
+type Tab = "week" | "global" | "league" | "friends"
 
 const gridVariants = {
   hidden: {},
@@ -48,7 +48,9 @@ export default function LeaderboardPage() {
   const { user, loading: profileLoading } = useProfile()
   const currentUserId = user?.id ?? null
   const [players, setPlayers] = useState<any[]>([])
-  const [tab, setTab] = useState<Tab>("league")
+  const [weeklyDeltas, setWeeklyDeltas] = useState<Record<string, number>>({})
+  const [friendIds, setFriendIds] = useState<string[]>([])
+  const [tab, setTab] = useState<Tab>("global")
   const [showInfo, setShowInfo] = useState(false)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
@@ -61,16 +63,40 @@ export default function LeaderboardPage() {
       return
     }
 
-    if (user) fetchPlayers()
+    if (user) fetchPlayers(user.id)
   }, [user, profileLoading, router])
 
-  async function fetchPlayers() {
+  async function fetchPlayers(userId: string) {
     const { data } = await supabase
       .from("profiles")
       .select("*")
       .order("xp", { ascending: false })
 
     if (data) setPlayers(data)
+
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+
+    const { data: weekPreds } = await supabase
+      .from("predictions")
+      .select("user_id, rating_delta")
+      .in("status", ["won", "lost"])
+      .gte("resolved_at", sevenDaysAgo)
+
+    const deltas: Record<string, number> = {}
+    for (const p of weekPreds || []) {
+      deltas[p.user_id] = (deltas[p.user_id] ?? 0) + (p.rating_delta ?? 0)
+    }
+    setWeeklyDeltas(deltas)
+
+    const { data: friendships } = await supabase
+      .from("friendships")
+      .select("*")
+      .eq("status", "accepted")
+      .or(`requester_id.eq.${userId},addressee_id.eq.${userId}`)
+
+    setFriendIds(
+      (friendships || []).map((f) => (f.requester_id === userId ? f.addressee_id : f.requester_id))
+    )
 
     setLoading(false)
   }
@@ -79,15 +105,40 @@ export default function LeaderboardPage() {
   const currentRating = currentPlayer ? getRating(currentPlayer) : 900
   const currentRank = getRankFromRating(currentRating)
 
+  const weekActiveIds = new Set(Object.keys(weeklyDeltas))
+  const weekPlayers = players
+    .filter((player) => weekActiveIds.has(player.id))
+    .sort((a, b) => (weeklyDeltas[b.id] ?? 0) - (weeklyDeltas[a.id] ?? 0))
+
+  const globalPlayers = [...players].sort((a, b) => getRating(b) - getRating(a))
+
   const leaguePlayers = players
     .filter((player) => getRankFromRating(getRating(player)).name === currentRank.name)
     .sort((a, b) => getRating(b) - getRating(a))
 
-  const globalPlayers = [...players]
+  const friendsIdSet = new Set([currentUserId, ...friendIds])
+  const friendsPlayers = players
+    .filter((player) => friendsIdSet.has(player.id))
     .sort((a, b) => getRating(b) - getRating(a))
-    .slice(0, 50)
 
-  const displayedPlayers = tab === "league" ? leaguePlayers : globalPlayers
+  const displayedPlayers =
+    tab === "week" ? weekPlayers : tab === "global" ? globalPlayers : tab === "league" ? leaguePlayers : friendsPlayers
+
+  const sectionTitle =
+    tab === "week"
+      ? "Progression cette semaine"
+      : tab === "global"
+      ? "Classement global"
+      : tab === "league"
+      ? `${currentRank.name} Rankings`
+      : "Mes amis"
+
+  const emptyMessage =
+    tab === "week"
+      ? "Personne n'a encore de pronostic résolu cette semaine"
+      : tab === "friends"
+      ? "Ajoute des amis pour les voir ici"
+      : "Aucun joueur pour l'instant"
 
   const progressPercent =
     currentRank.nextRating
@@ -114,7 +165,7 @@ export default function LeaderboardPage() {
         </h1>
 
         <p className="mt-1 text-sm text-zinc-500">
-          Grimpe dans ta ligue et vise le Top 50 global
+          Compare-toi aux autres, cette semaine ou all-time
         </p>
       </div>
 
@@ -172,30 +223,46 @@ export default function LeaderboardPage() {
       </div>
     </section>
 
-    <div className="mt-4 grid grid-cols-2 overflow-hidden rounded-2xl border border-white/10 bg-zinc-950">
+    <div className="mt-4 grid grid-cols-4 overflow-hidden rounded-2xl border border-white/10 bg-zinc-950">
       <button
-        onClick={() => setTab("league")}
-        className={`py-3 text-sm font-extrabold ${
-          tab === "league" ? "bg-purple-600 text-white" : "text-zinc-500"
+        onClick={() => setTab("week")}
+        className={`py-3 text-xs font-extrabold ${
+          tab === "week" ? "bg-purple-600 text-white" : "text-zinc-500"
         }`}
       >
-        Ma Ligue
+        Semaine
       </button>
 
       <button
         onClick={() => setTab("global")}
-        className={`py-3 text-sm font-extrabold ${
+        className={`py-3 text-xs font-extrabold ${
           tab === "global" ? "bg-purple-600 text-white" : "text-zinc-500"
         }`}
       >
-        Top 50
+        Global
+      </button>
+
+      <button
+        onClick={() => setTab("league")}
+        className={`py-3 text-xs font-extrabold ${
+          tab === "league" ? "bg-purple-600 text-white" : "text-zinc-500"
+        }`}
+      >
+        Par rang
+      </button>
+
+      <button
+        onClick={() => setTab("friends")}
+        className={`py-3 text-xs font-extrabold ${
+          tab === "friends" ? "bg-purple-600 text-white" : "text-zinc-500"
+        }`}
+      >
+        Amis
       </button>
     </div>
 
     <div className="mt-6 flex items-center justify-between">
-      <h2 className="text-lg font-extrabold">
-        {tab === "league" ? `${currentRank.name} Rankings` : "Top 50 Global"}
-      </h2>
+      <h2 className="text-lg font-extrabold">{sectionTitle}</h2>
 
       <button
         onClick={() => setShowInfo(true)}
@@ -206,12 +273,18 @@ export default function LeaderboardPage() {
       </button>
     </div>
 
+    {displayedPlayers.length === 0 ? (
+      <div className="mt-4 flex flex-col items-center gap-2 rounded-2xl border border-white/10 bg-black/20 p-8 text-center">
+        <p className="text-sm text-zinc-500">{emptyMessage}</p>
+      </div>
+    ) : (
     <motion.div variants={gridVariants} initial="hidden" animate="show" className="mt-4 space-y-2">
       {displayedPlayers.map((player, index) => {
         const isMe = player.id === currentUserId
         const playerRating = getRating(player)
         const playerRank = getRankFromRating(playerRating)
         const position = index + 1
+        const weekDelta = weeklyDeltas[player.id] ?? 0
 
         return (
   <motion.div
@@ -255,15 +328,28 @@ export default function LeaderboardPage() {
     </div>
 
     <div className="text-right">
-      <p className="text-lg font-black text-purple-300 tabular-nums">
-        <AnimatedNumber value={playerRating} />
-      </p>
-      <p className="text-[10px] font-bold text-zinc-500">PR</p>
+      {tab === "week" ? (
+        <>
+          <p className={`text-lg font-black tabular-nums ${weekDelta >= 0 ? "text-green-400" : "text-red-400"}`}>
+            {weekDelta > 0 ? "+" : ""}
+            <AnimatedNumber value={weekDelta} />
+          </p>
+          <p className="text-[10px] font-bold text-zinc-500">PR cette semaine</p>
+        </>
+      ) : (
+        <>
+          <p className="text-lg font-black text-purple-300 tabular-nums">
+            <AnimatedNumber value={playerRating} />
+          </p>
+          <p className="text-[10px] font-bold text-zinc-500">PR</p>
+        </>
+      )}
     </div>
   </motion.div>
 )
       })}
     </motion.div>
+    )}
 
     {showInfo && (
       <div

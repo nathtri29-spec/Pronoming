@@ -6,6 +6,7 @@ import { motion } from "framer-motion"
 import { supabase } from "@/lib/supabase"
 import { Calendar, Gamepad2, ShieldAlert, Trophy } from "lucide-react"
 import { useToast } from "@/components/toast-provider"
+import { getGameColor } from "@/lib/games"
 
 const gridVariants = {
   hidden: {},
@@ -252,7 +253,7 @@ export default function AdminPage() {
                   </h2>
 
                   <p className="mt-0.5 text-xs font-semibold text-zinc-500">
-                    {match.game ?? "Rocket League"} ·{" "}
+                    <span style={{ color: getGameColor(match.game) }}>{match.game ?? "Rocket League"}</span> ·{" "}
                     {new Date(match.start_time).toLocaleDateString("fr-FR", {
                       day: "2-digit",
                       month: "2-digit",

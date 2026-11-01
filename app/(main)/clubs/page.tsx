@@ -10,6 +10,7 @@ import { useToast } from "@/components/toast-provider"
 import { ClubsSkeleton } from "@/components/clubs-skeleton"
 import { useProfile } from "@/components/profile-provider"
 import { clubInitials, clubColor } from "@/lib/club-colors"
+import { getGameColor } from "@/lib/games"
 import {
   Shield,
   Lock,
@@ -801,7 +802,7 @@ export default function ClubsPage() {
                         >
                           {sharedMatch ? (
                             <>
-                              <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "#c084fc" }}>
+                              <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: getGameColor(sharedMatch.game) }}>
                                 {sharedMatch.game ?? "Rocket League"}
                               </p>
                               <p className="mt-1 text-sm font-bold text-white">
@@ -951,7 +952,7 @@ export default function ClubsPage() {
                     className="w-full rounded-xl p-3 text-left"
                     style={{ background: "rgba(124,58,237,0.08)", border: "1px solid rgba(192,132,252,0.3)" }}
                   >
-                    <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "#c084fc" }}>
+                    <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: getGameColor(m.game) }}>
                       {m.game ?? "Rocket League"}
                     </p>
                     <p className="mt-1 text-sm font-bold text-white">

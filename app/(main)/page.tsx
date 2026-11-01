@@ -4,33 +4,16 @@ import { useEffect, useState } from "react"
 import Image from "next/image"
 import { supabase } from "@/lib/supabase"
 import { XpBar } from "@/components/xp-bar"
-import { RewardPopup } from "@/components/reward-popup"
 import { WinRecapModal, type WonRecapItem } from "@/components/win-recap-modal"
 import { HomeSkeleton } from "@/components/home-skeleton"
 import { useRouter } from "next/navigation"
-import { FileText, Gamepad2, Check, Flame, ChevronDown, Gift } from "lucide-react"
-import { motion, AnimatePresence, useReducedMotion } from "framer-motion"
-import { getRatingMultiplier } from "@/lib/rank"
-import { useScrollLock } from "@/lib/use-scroll-lock"
-import { boostDefs, type BoostKey } from "@/lib/boost-styles"
+import { FileText, Gamepad2, Flame, ChevronDown, Gift } from "lucide-react"
+import { motion, useReducedMotion } from "framer-motion"
 import { AnimatedNumber } from "@/components/animated-number"
-import { getMaxStake } from "@/lib/economy"
 import { computeCommunityOdds } from "@/lib/odds"
 import { useToast } from "@/components/toast-provider"
 import { useProfile } from "@/components/profile-provider"
-import { GAMES } from "@/lib/games"
-
-const backdropVariants = {
-  hidden: { opacity: 0 },
-  visible: { opacity: 1, transition: { duration: 0.25 } },
-  exit: { opacity: 0, transition: { duration: 0.2 } },
-}
-
-const sheetVariants = {
-  hidden: { y: "100%", opacity: 0 },
-  visible: { y: 0, opacity: 1, transition: { type: "spring" as const, bounce: 0.25, duration: 0.45 } },
-  exit: { y: "100%", opacity: 0, transition: { duration: 0.28, ease: "easeIn" as const } },
-}
+import { GAMES, getGameColor } from "@/lib/games"
 
 const gridVariants = {
   hidden: {},
@@ -48,44 +31,18 @@ const cardVariants = {
 }
 
 export default function Home() {
-  const { user, profile, loading: profileLoading, refresh } = useProfile()
+  const { user, profile, loading: profileLoading } = useProfile()
   const [matches, setMatches] = useState<any[]>([])
   const [predictions, setPredictions] = useState<any[]>([])
-  const [selectedMatch, setSelectedMatch] = useState<any>(null)
-  const [selectedTeam, setSelectedTeam] = useState("")
-  const [selectedOdds, setSelectedOdds] = useState(0)
-  const [stake, setStake] = useState(0)
   const [loading, setLoading] = useState(true)
   const [seasonNumber, setSeasonNumber] = useState<number | null>(null)
   const router = useRouter()
   const toast = useToast()
-  const [predictionSuccess, setPredictionSuccess] = useState<string | null>(null)
-  const [activeBoosts, setActiveBoosts] = useState<any[]>([])
-  const [selectedBoosts, setSelectedBoosts] = useState<Set<BoostKey>>(new Set())
   const [selectedGame, setSelectedGame] = useState<string | null>(null)
   const [showGameMenu, setShowGameMenu] = useState(false)
   const [pendingStakesByMatch, setPendingStakesByMatch] = useState<Record<number, { a: number; b: number }>>({})
   const [winRecap, setWinRecap] = useState<WonRecapItem[] | null>(null)
-  const sheetPanelRef = useScrollLock(!!selectedMatch)
   const reduceMotion = useReducedMotion()
-
-  function toggleBoost(type: BoostKey) {
-    setSelectedBoosts((prev) => {
-      const next = new Set(prev)
-      if (next.has(type)) {
-        next.delete(type)
-      } else {
-        next.add(type)
-      }
-      return next
-    })
-  }
-
-  function prLossPreview() {
-    const rating = profile?.rating ?? 900
-    const base = rating >= 1800 ? 20 : rating >= 1400 ? 5 : 0
-    return selectedBoosts.has("pr_gamble") ? base * 2 : base
-  }
 
   useEffect(() => {
     if (!profileLoading && !user) {
@@ -164,14 +121,6 @@ export default function Home() {
 
     if (predictionsData) setPredictions(predictionsData)
 
-    const { data: boostsData } = await supabase
-      .from("profile_boosts")
-      .select("*")
-      .eq("user_id", userId)
-      .eq("status", "pending")
-
-    setActiveBoosts(boostsData || [])
-
     await checkUnseenWins(userId)
   }
 
@@ -246,85 +195,6 @@ export default function Home() {
 
     return ((profile.season_xp - currentLevelXp) / (nextLevelXp - currentLevelXp)) * 100
   }
-
-  function openPrediction(match: any, team: string, odds: number) {
-    if (!profile) {
-      toast.error("Tu dois être connecté")
-      return
-    }
-
-    const maxStake = getMaxStake(profile.points, profile.season_level)
-
-    setSelectedMatch(match)
-    setSelectedTeam(team)
-    setSelectedOdds(odds)
-    setStake(Math.max(10, Math.floor(maxStake / 2)))
-    setSelectedBoosts(new Set())
-  }
-
-  async function confirmPrediction() {
-    if (!user || !profile || !selectedMatch) return
-
-    if (!stake || stake <= 0) {
-      toast.error("Entre un stake valide")
-      return
-    }
-
-    // Ces vérifications restent ici pour un retour instantané à l'utilisateur,
-    // mais c'est la fonction place_prediction (côté serveur) qui fait foi :
-    // impossible de les contourner depuis le navigateur.
-    if (stake > profile.points) {
-      toast.error("Pas assez de points")
-      return
-    }
-
-    const maxStake = getMaxStake(profile.points, profile.season_level)
-
-    if (stake > maxStake) {
-      toast.error(`Mise maximum autorisée : ${maxStake} points`)
-      return
-    }
-
-    const existing = predictions.find(
-      (p) => p.match_id === selectedMatch.id
-    )
-
-    if (existing) {
-      toast.error("Tu as déjà prédit ce match")
-      return
-    }
-
-    const { error } = await supabase.rpc("place_prediction", {
-      p_match_id: selectedMatch.id,
-      p_selected_team: selectedTeam,
-      p_stake: stake,
-      p_use_insurance: selectedBoosts.has("insurance"),
-      p_use_gain_boost: selectedBoosts.has("gain_boost"),
-      p_use_pr_gamble: selectedBoosts.has("pr_gamble"),
-      p_use_xp_boost: selectedBoosts.has("xp_boost"),
-    })
-
-    if (error) {
-      toast.error(error.message)
-      return
-    }
-
-    setSelectedMatch(null)
-    setSelectedTeam("")
-    setSelectedOdds(0)
-    setStake(0)
-    setSelectedBoosts(new Set())
-
-    setPredictionSuccess(selectedTeam)
-
-setTimeout(() => {
-  setPredictionSuccess(null)
-}, 2000)
-    await refresh()
-    if (user) loadUserData(user.id)
-  }
-
-  const maxStake = profile ? getMaxStake(profile.points, profile.season_level) : 0
 
   const displayedMatches = (selectedGame ? matches.filter((m) => m.game === selectedGame) : matches).map(
     (match) => {
@@ -446,10 +316,14 @@ setTimeout(() => {
                         setSelectedGame(game)
                         setShowGameMenu(false)
                       }}
-                      className={`block w-full px-4 py-2.5 text-left text-sm font-bold ${
+                      className={`flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-bold ${
                         selectedGame === game ? "bg-purple-600 text-white" : "text-zinc-300"
                       }`}
                     >
+                      <span
+                        className="h-2 w-2 shrink-0 rounded-full"
+                        style={{ background: getGameColor(game) }}
+                      />
                       {game}
                     </button>
                   ))}
@@ -541,14 +415,16 @@ const startsSoon = !isLive && date.getTime() - Date.now() < 2 * 60 * 60 * 1000
               <motion.div
                 key={match.id}
                 variants={cardVariants}
-                className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#08080d] p-4 shadow-[0_0_25px_rgba(124,58,237,0.08)] transition-all duration-200 hover:border-purple-500/50 hover:shadow-[0_0_30px_rgba(124,58,237,0.18)]"
+                onClick={() => router.push(`/match/${match.id}`)}
+                className="relative cursor-pointer overflow-hidden rounded-2xl border border-white/10 bg-[#08080d] p-4 shadow-[0_0_25px_rgba(124,58,237,0.08)] transition-all duration-200 hover:border-purple-500/50 hover:shadow-[0_0_30px_rgba(124,58,237,0.18)]"
               >
                 <div className="absolute left-0 top-0 h-1 w-full bg-gradient-to-r from-purple-600 to-red-600" />
 
                 <div className="mb-4 flex items-start justify-between">
   <div>
     <span className="text-xs font-bold uppercase tracking-widest text-zinc-500">
-      {match.game ?? "Rocket League"} · {match.Tournament || "RLCS"}
+      <span style={{ color: getGameColor(match.game) }}>{match.game ?? "Rocket League"}</span>
+      {" · "}{match.Tournament || "RLCS"}
     </span>
 
     {match.odds_mode === "community" && (
@@ -613,16 +489,15 @@ const startsSoon = !isLive && date.getTime() - Date.now() < 2 * 60 * 60 * 1000
 
                 <div className="grid grid-cols-2 gap-3">
                   <motion.button
-                    onClick={() =>
-                      !alreadyPredicted &&
-                      openPrediction(match, match.team_a, match.odds_team_a)
-                    }
-                    disabled={alreadyPredicted}
-                    whileTap={alreadyPredicted ? undefined : { scale: 0.92 }}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      router.push(`/match/${match.id}?team=a`)
+                    }}
+                    whileTap={{ scale: 0.92 }}
                     transition={{ type: "spring", stiffness: 400, damping: 17 }}
-                    className="rounded-xl border border-zinc-500/40 bg-black/40 p-3 text-center transition-colors duration-200 hover:border-purple-500 hover:bg-purple-900/20 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-zinc-500/40 disabled:hover:bg-black/40"
+                    className="rounded-xl border border-zinc-500/40 bg-black/40 p-3 text-center transition-colors duration-200 hover:border-purple-500 hover:bg-purple-900/20"
                   >
-                    <p className="bg-gradient-to-r from-purple-400 to-red-500 bg-clip-text text-xl font-extrabold text-transparent">
+                    <p className="odds-gradient-text text-xl font-extrabold">
   {Number(match.odds_team_a).toFixed(2)}
 </p>
                     <p className="text-xs text-zinc-500">
@@ -631,16 +506,15 @@ const startsSoon = !isLive && date.getTime() - Date.now() < 2 * 60 * 60 * 1000
                   </motion.button>
 
                   <motion.button
-                    onClick={() =>
-                      !alreadyPredicted &&
-                      openPrediction(match, match.team_b, match.odds_team_b)
-                    }
-                    disabled={alreadyPredicted}
-                    whileTap={alreadyPredicted ? undefined : { scale: 0.92 }}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      router.push(`/match/${match.id}?team=b`)
+                    }}
+                    whileTap={{ scale: 0.92 }}
                     transition={{ type: "spring", stiffness: 400, damping: 17 }}
-                    className="rounded-xl border border-zinc-500/40 bg-black/40 p-3 text-center transition-colors duration-200 hover:border-red-500 hover:bg-red-900/20 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-zinc-500/40 disabled:hover:bg-black/40"
+                    className="rounded-xl border border-zinc-500/40 bg-black/40 p-3 text-center transition-colors duration-200 hover:border-red-500 hover:bg-red-900/20"
                   >
-                    <p className="bg-gradient-to-r from-purple-400 to-red-500 bg-clip-text text-xl font-extrabold text-transparent">
+                    <p className="odds-gradient-text text-xl font-extrabold">
   {Number(match.odds_team_b).toFixed(2)}
 </p>
                     <p className="text-xs text-zinc-500">
@@ -654,172 +528,7 @@ const startsSoon = !isLive && date.getTime() - Date.now() < 2 * 60 * 60 * 1000
         </motion.div>
       </main>
 
-      <AnimatePresence>
-      {selectedMatch && (
-       <motion.div
-  className="fixed inset-0 z-[60] flex items-end bg-black/80"
-  variants={backdropVariants}
-  initial="hidden"
-  animate="visible"
-  exit="exit"
-  onClick={() => setSelectedMatch(null)}
->
-         <motion.div
-ref={sheetPanelRef}
-className="max-h-[85vh] w-full overflow-y-auto overscroll-contain rounded-t-3xl border-t-2 border-purple-600 bg-zinc-950 p-6"
-  variants={sheetVariants}
-  initial="hidden"
-  animate="visible"
-  exit="exit"
-  onClick={(e) => e.stopPropagation()}
->
-            <div className="mx-auto mb-5 h-1 w-12 rounded-full bg-zinc-700" />
-
-            <h2 className="text-2xl font-bold">
-              PLACER UN PRONOSTIC
-            </h2>
-
-            <p className="mb-5 text-sm text-zinc-500">
-              {selectedMatch.team_a} vs {selectedMatch.team_b}
-            </p>
-
-            <div className="mb-4 rounded-xl border border-purple-500/30 bg-purple-900/10 p-4">
-              <p className="text-sm text-zinc-400">Sélection</p>
-              <p className="text-xl font-bold text-purple-300">
-                {selectedTeam}
-              </p>
-              <p className="text-yellow-400">
-                Cote {Number(selectedOdds).toFixed(2)}
-              </p>
-            </div>
-
-            <label className="text-xs font-bold uppercase tracking-wider text-zinc-500">
-              Mise
-            </label>
-
-            <input
-  type="number"
-  placeholder="Entrez votre mise"
-  value={stake || ""}
-  onChange={(e) => setStake(Number(e.target.value))}
-  className="mt-2 w-full rounded-xl border border-zinc-700 bg-zinc-900 p-4 text-white outline-none focus:border-purple-500"
-/>
-
-            <p className="mt-2 text-sm font-bold text-white">
-  Mise maximale : {maxStake} points
-</p>
-
-            {activeBoosts.length > 0 && (
-              <div className="mt-3">
-                <p className="mb-1.5 text-xs font-bold uppercase tracking-wider text-zinc-500">
-                  Utiliser un boost sur ce prono ?
-                </p>
-
-                <div className="flex flex-wrap gap-1.5">
-                  {activeBoosts.map((boost) => {
-                    const key = boost.boost_type as BoostKey
-                    const def = boostDefs[key]
-                    if (!def) return null
-                    const Icon = def.icon
-                    const selected = selectedBoosts.has(key)
-
-                    return (
-                      <button
-                        key={boost.id}
-                        type="button"
-                        onClick={() => toggleBoost(key)}
-                        className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[10px] font-bold transition-colors ${
-                          selected
-                            ? "border-purple-400 bg-purple-500/20 text-purple-200"
-                            : "border-white/15 bg-white/5 text-zinc-400"
-                        }`}
-                      >
-                        <Icon className="h-3 w-3" strokeWidth={2.5} />
-                        {def.label}
-                        {selected && <Check className="h-3 w-3" strokeWidth={3} />}
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
-
-            <div className="mt-4 rounded-xl border border-zinc-800 bg-zinc-900 p-4">
-              <div className="flex justify-between">
-                <span className="text-zinc-500">Gain potentiel</span>
-                <span className="text-xl font-bold text-yellow-400">
-                  {Math.round(stake * selectedOdds * (selectedBoosts.has("gain_boost") ? 1.2 : 1))} pts
-                </span>
-              </div>
-
-              <div className="mt-2 flex justify-between text-sm">
-                <span className="text-zinc-500">XP estimé</span>
-                <span className="text-purple-400">
-                  +{Math.round((stake * selectedOdds) / 10 * (selectedBoosts.has("xp_boost") ? 1.3 : 1))} XP si correct
-                </span>
-              </div>
-
-              {selectedBoosts.has("insurance") && (
-                <div className="mt-2 flex justify-between text-sm">
-                  <span className="text-zinc-500">Si perdu</span>
-                  <span className="text-emerald-400">
-                    +{Math.round(stake * 0.5)} pts remboursés (assurance)
-                  </span>
-                </div>
-              )}
-
-              <div className="mt-2 flex justify-between text-sm">
-                <span className="text-zinc-500">PR estimé</span>
-                <span className="text-red-400">
-                  +{Math.round(
-                    Math.round(10 * selectedOdds * (maxStake > 0 ? stake / maxStake : 0)) *
-                      getRatingMultiplier(profile?.rating ?? 900) *
-                      (selectedBoosts.has("pr_gamble") ? 2 : 1)
-                  )}{" "}
-                  PR si correct
-                </span>
-              </div>
-
-              {selectedBoosts.has("pr_gamble") && prLossPreview() > 0 && (
-                <div className="mt-2 flex justify-between text-sm">
-                  <span className="text-zinc-500">PR risqué si perdu</span>
-                  <span className="font-bold text-red-500">
-                    -{prLossPreview()} PR (doublé)
-                  </span>
-                </div>
-              )}
-            </div>
-
-            <motion.button
-              onClick={confirmPrediction}
-              whileTap={{ scale: 0.96 }}
-              transition={{ type: "spring", stiffness: 400, damping: 17 }}
-              className="mt-5 w-full rounded-xl bg-gradient-to-r from-purple-600 to-red-600 p-4 font-extrabold"
-            >
-              CONFIRMER LE PRONOSTIC →
-            </motion.button>
-
-            <motion.button
-          onClick={() => setSelectedMatch(null)}
-          whileTap={{ scale: 0.96 }}
-          transition={{ type: "spring", stiffness: 400, damping: 17 }}
-          className="mt-3 w-full rounded-xl border border-zinc-700 p-3"
-        >
-          ANNULER
-        </motion.button>
-      </motion.div>
-    </motion.div>
-  )}
-      </AnimatePresence>
-
-  <RewardPopup
-    visible={!!predictionSuccess}
-    icon={<Check className="h-8 w-8 text-white" strokeWidth={3} />}
-    title="Prédiction validée"
-    subtitle={predictionSuccess ?? undefined}
-  />
-
-  <WinRecapModal wins={winRecap} onClose={closeWinRecap} />
+      <WinRecapModal wins={winRecap} onClose={closeWinRecap} />
 
 </div>
 )
