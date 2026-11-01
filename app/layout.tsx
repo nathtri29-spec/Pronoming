@@ -10,9 +10,27 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://pronoming.vercel.app'),
   title: 'PRONOMING | Competitive Esports Predictions',
   description: 'Predict competitive esports matches and compete with virtual points',
   generator: 'v0.app',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    title: 'Pronoming',
+  },
+  openGraph: {
+    title: 'Pronoming',
+    description: 'Predict competitive esports matches and compete with virtual points',
+    siteName: 'Pronoming',
+    url: '/',
+    images: ['/apple-icon.png'],
+  },
+  twitter: {
+    card: 'summary',
+    title: 'Pronoming',
+    description: 'Predict competitive esports matches and compete with virtual points',
+    images: ['/apple-icon.png'],
+  },
   icons: {
     icon: [
       {
