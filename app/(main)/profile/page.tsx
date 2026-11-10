@@ -8,12 +8,10 @@ import { RankName } from "@/components/rank-name"
 import { getRating, getRankFromRating } from "@/lib/rank"
 import { XpBar } from "@/components/xp-bar"
 import { AnimatedNumber } from "@/components/animated-number"
-import { BoostChips } from "@/components/boost-chip"
 import { getMaxStakePercent } from "@/lib/economy"
 import { useToast } from "@/components/toast-provider"
 import {
   Trophy,
-  Clock,
   Gamepad2,
   Percent,
   TrendingDown,
@@ -23,15 +21,14 @@ import {
   Award,
   LogOut,
   Users,
-  Undo2,
   Infinity as InfinityIcon,
 } from "lucide-react"
-import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { UserAvatar } from "@/components/user-avatar"
 import { ProfileSkeleton } from "@/components/profile-skeleton"
 import { getTitleStyle } from "@/lib/title-styles"
 import { useProfile } from "@/components/profile-provider"
+import { GAMES } from "@/lib/games"
 
 const gridVariants = {
   hidden: {},
@@ -89,7 +86,8 @@ export default function ProfilePage() {
         *,
         matches (
           team_a,
-          team_b
+          team_b,
+          game
         )
       `)
       .eq("user_id", userId)
@@ -150,6 +148,26 @@ export default function ProfilePage() {
   const xpNeeded = nextLevelXp - currentLevelXp
   const progressPercent = (progressXp / xpNeeded) * 100
   const maxStakePercent = Math.round(getMaxStakePercent(profile.season_level) * 100)
+  const formItems = predictions
+    .filter((p) => p.status === "won" || p.status === "lost" || p.status === "cancelled")
+    .slice(0, 10)
+    .reverse()
+
+  const gameTotals: Record<string, { wins: number; losses: number }> = {}
+  for (const p of predictions) {
+    if (p.status !== "won" && p.status !== "lost") continue
+    const raw = (p.matches?.game ?? "Rocket League").trim()
+    const game = GAMES.find((g) => g.toLowerCase() === raw.toLowerCase()) ?? raw
+    if (!gameTotals[game]) gameTotals[game] = { wins: 0, losses: 0 }
+    if (p.status === "won") gameTotals[game].wins += 1
+    else gameTotals[game].losses += 1
+  }
+
+  const gameStats = Object.entries(gameTotals).map(([game, t]) => ({
+    game,
+    pct: Math.round((t.wins / (t.wins + t.losses)) * 100),
+  }))
+
   const unclaimedCount = achievements.filter(
     (a) => getAchievementStatus(a.key) === "unclaimed"
   ).length
@@ -410,6 +428,58 @@ async function logout() {
         />
       </motion.div>
 
+      <div className="mt-6 rounded-2xl border border-white/10 bg-black/30 p-4">
+        <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-zinc-400">
+          Forme · 10 derniers pronos
+        </h3>
+
+        {formItems.length === 0 ? (
+          <p className="text-sm text-zinc-500">Pas encore de pronos résolus</p>
+        ) : (
+          <div className="flex gap-1.5">
+            {formItems.map((p) => (
+              <div
+                key={p.id}
+                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-xs font-black ${
+                  p.status === "won"
+                    ? "bg-green-500/15 text-green-400"
+                    : p.status === "lost"
+                    ? "bg-red-500/15 text-red-400"
+                    : "bg-zinc-500/15 text-zinc-400"
+                }`}
+              >
+                {p.status === "won" ? "V" : p.status === "lost" ? "D" : "A"}
+              </div>
+            ))}
+          </div>
+        )}
+
+        <h3 className="mb-2 mt-5 text-xs font-bold uppercase tracking-wider text-zinc-400">
+          Réussite par jeu
+        </h3>
+
+        {gameStats.length === 0 ? (
+          <p className="text-sm text-zinc-500">Pas encore assez de données</p>
+        ) : (
+          <div className="space-y-3">
+            {gameStats.map((g) => (
+              <div key={g.game}>
+                <div className="mb-1 flex justify-between text-xs font-bold">
+                  <span className="text-white">{g.game}</span>
+                  <span className="text-zinc-400">{g.pct}%</span>
+                </div>
+                <div className="h-1.5 overflow-hidden rounded-full bg-zinc-800">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-purple-600 to-red-600"
+                    style={{ width: `${g.pct}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {seasonHistory.length > 0 && (
         <div className="mt-10">
           <h2 className="mb-4 text-xl font-bold tracking-wide">
@@ -435,111 +505,6 @@ async function logout() {
         </div>
       )}
 
-      <div className="mt-10">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-bold tracking-wide">
-            HISTORIQUE DES PRONOS
-          </h2>
-
-          <Link
-            href="/predictions"
-            className="text-xs font-bold text-purple-300"
-          >
-            Voir tout
-          </Link>
-        </div>
-
-        {predictions.length === 0 ? (
-          <div className="rounded-xl border border-white/10 bg-black/20 p-6 text-center">
-            <p className="text-sm text-zinc-500">Aucun prono pour l'instant</p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {predictions.slice(0, 5).map((prediction) => {
-              const isWon = prediction.status === "won"
-              const isLost = prediction.status === "lost"
-              const isCancelled = prediction.status === "cancelled"
-
-              const Icon = isWon ? Trophy : isLost ? TrendingDown : isCancelled ? Undo2 : Clock
-              const color = isWon
-                ? "text-green-400"
-                : isLost
-                ? "text-red-400"
-                : isCancelled
-                ? "text-zinc-400"
-                : "text-purple-300"
-              const bg = isWon
-                ? "bg-green-500/10"
-                : isLost
-                ? "bg-red-500/10"
-                : isCancelled
-                ? "bg-zinc-500/10"
-                : "bg-purple-500/10"
-              const border = isWon
-                ? "border-green-500/30"
-                : isLost
-                ? "border-red-500/30"
-                : isCancelled
-                ? "border-zinc-500/30"
-                : "border-purple-500/30"
-
-              let gain = Math.round(prediction.stake * prediction.odds)
-              if (prediction.gain_boost_applied) gain = Math.round(gain * 1.2)
-
-              let xpGain = Math.round(gain / 10)
-              if (prediction.xp_boost_applied) xpGain = Math.round(xpGain * 1.3)
-
-              let lossXp = 5
-              if (prediction.xp_boost_applied) lossXp = Math.round(lossXp * 1.3)
-
-              const pointsText = isWon
-                ? `+${gain} pts`
-                : isLost
-                ? `-${prediction.stake} pts`
-                : isCancelled
-                ? `+${prediction.stake} pts remboursés`
-                : "En attente"
-
-              const xpText = isWon ? `+${xpGain} XP` : isLost ? `+${lossXp} XP` : null
-
-              return (
-                <div
-                  key={prediction.id}
-                  className={`rounded-xl border ${border} bg-black/20 p-3`}
-                >
-                  <div className="flex items-center gap-3">
-                  <div
-                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${bg} ${color}`}
-                  >
-                    <Icon className="h-4 w-4" strokeWidth={2.5} />
-                  </div>
-
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-bold text-white">
-                      {prediction.matches?.team_a} vs {prediction.matches?.team_b}
-                    </p>
-
-                    <p className="text-xs text-zinc-500">
-                      Pick: {prediction.selected_team}
-                    </p>
-                  </div>
-
-                  <div className="shrink-0 text-right">
-                    <p className={`text-sm font-bold ${color}`}>{pointsText}</p>
-
-                    {xpText && (
-                      <p className="text-xs text-purple-300">{xpText}</p>
-                    )}
-                  </div>
-                  </div>
-
-                  <BoostChips prediction={prediction} />
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </div>
     </div>
   )
 }

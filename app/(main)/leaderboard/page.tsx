@@ -291,7 +291,7 @@ export default function LeaderboardPage() {
   key={player.id}
   variants={rowVariants}
   onClick={() => router.push(`/profile/${player.id}`)}
-    className={`flex items-center gap-3 rounded-2xl border bg-zinc-950/90 p-3 transition-all duration-300 hover:scale-[1.01] ${
+    className={`flex h-[50px] items-center gap-3 rounded-2xl border bg-zinc-950/90 px-3 transition-all duration-300 hover:scale-[1.01] ${
       isMe
         ? "border-purple-400 shadow-[0_0_26px_rgba(168,85,247,0.38)]"
         : position === 1
@@ -307,7 +307,7 @@ export default function LeaderboardPage() {
       {position === 1 ? "🥇" : position === 2 ? "🥈" : position === 3 ? "🥉" : position}
     </div>
 
-    <UserAvatar username={player.username} avatarKey={player.avatar_key} size={42} />
+    <UserAvatar username={player.username} avatarKey={player.avatar_key} size={34} />
 
     <div className="min-w-0 flex-1">
       <p className="truncate text-base font-black leading-tight">
@@ -319,30 +319,24 @@ export default function LeaderboardPage() {
         )}
       </p>
 
-      <div className="mt-0.5 flex items-center gap-1.5">
-        <RankBadge rank={playerRank.name} size={16} intensity={0.4} />
-        <p className="text-[11px] font-bold uppercase tracking-wider text-zinc-500">
+      <div className="flex items-center gap-1">
+        <RankBadge rank={playerRank.name} size={12} intensity={0.4} />
+        <p className="truncate text-[10px] font-bold uppercase tracking-wider text-zinc-500">
           LV {player.season_level ?? 1} · <RankName rank={playerRank} />
         </p>
       </div>
     </div>
 
-    <div className="text-right">
+    <div className="shrink-0 text-right">
       {tab === "week" ? (
-        <>
-          <p className={`text-lg font-black tabular-nums ${weekDelta >= 0 ? "text-green-400" : "text-red-400"}`}>
-            {weekDelta > 0 ? "+" : ""}
-            <AnimatedNumber value={weekDelta} />
-          </p>
-          <p className="text-[10px] font-bold text-zinc-500">PR cette semaine</p>
-        </>
+        <p className={`text-base font-black tabular-nums ${weekDelta >= 0 ? "text-green-400" : "text-red-400"}`}>
+          {weekDelta > 0 ? "+" : ""}
+          <AnimatedNumber value={weekDelta} /> <span className="text-[10px] font-bold text-zinc-500">PR</span>
+        </p>
       ) : (
-        <>
-          <p className="text-lg font-black text-purple-300 tabular-nums">
-            <AnimatedNumber value={playerRating} />
-          </p>
-          <p className="text-[10px] font-bold text-zinc-500">PR</p>
-        </>
+        <p className="text-base font-black text-purple-300 tabular-nums">
+          <AnimatedNumber value={playerRating} /> <span className="text-[10px] font-bold text-zinc-500">PR</span>
+        </p>
       )}
     </div>
   </motion.div>

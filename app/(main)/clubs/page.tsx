@@ -294,7 +294,7 @@ export default function ClubsPage() {
 
     const { data: matchesData } = await supabase
       .from("matches")
-      .select("id, team_a, team_b, odds_team_a, odds_team_b, odds_mode, game, winner, cancelled_at")
+      .select("id, team_a, team_b, odds_team_a, odds_team_b, odds_mode, game, winner, cancelled_at, Tournament")
 
     const byId: Record<number, any> = {}
     for (const m of matchesData || []) byId[m.id] = m
@@ -791,21 +791,26 @@ export default function ClubsPage() {
                     </button>
 
                     <div className={`flex max-w-[75%] flex-col gap-1 ${isMe ? "items-end" : "items-start"}`}>
-                      <p className="px-1 text-[10px] font-bold text-purple-300">
-                        {isMe ? "Toi" : sender?.username || "Player"}
-                      </p>
+                      {msg.kind !== "match_share" && (
+                        <p className="px-1 text-[10px] font-bold text-purple-300">
+                          {isMe ? "Toi" : sender?.username || "Player"}
+                        </p>
+                      )}
 
                       {msg.kind === "match_share" ? (
                         <div
-                          className="rounded-xl p-3"
+                          className="w-full rounded-xl p-3"
                           style={{ background: "rgba(124,58,237,0.08)", border: "1px solid rgba(192,132,252,0.3)" }}
                         >
                           {sharedMatch ? (
                             <>
-                              <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: getGameColor(sharedMatch.game) }}>
-                                {sharedMatch.game ?? "Rocket League"}
-                              </p>
-                              <p className="mt-1 text-sm font-bold text-white">
+                              <div className="flex items-center justify-between gap-2 text-[10px] font-bold uppercase tracking-wider">
+                                <span className="text-purple-300">{isMe ? "Toi" : sender?.username || "Player"}</span>
+                                <span className="truncate" style={{ color: getGameColor(sharedMatch.game) }}>
+                                  {sharedMatch.Tournament || "RLCS"}
+                                </span>
+                              </div>
+                              <p className="mt-1.5 text-sm font-bold text-white">
                                 {sharedMatch.team_a} <span className="text-zinc-500">vs</span> {sharedMatch.team_b}
                               </p>
                               {sharedMatch.odds_mode === "community" ? (

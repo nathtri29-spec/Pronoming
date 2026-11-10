@@ -73,7 +73,7 @@ export default function PredictionsPage() {
       <div className="mb-6 flex flex-wrap gap-2">
   {[
     { key: "all", label: "Tous" },
-    { key: "pending", label: "En attente" },
+    { key: "pending", label: `En attente (${predictions.filter((p) => p.status === "pending").length})` },
     { key: "won", label: "Gagnés" },
     { key: "lost", label: "Perdus" },
   ].map((item) => (
@@ -132,103 +132,51 @@ export default function PredictionsPage() {
           return (
             <div
               key={prediction.id}
-              className={`rounded-2xl border p-4 transition-all ${
-  isWon
-    ? "border-green-400/60 shadow-[0_0_18px_rgba(74,222,128,0.22)]"
-    : isLost
-    ? "border-red-400/60 shadow-[0_0_18px_rgba(248,113,113,0.18)]"
-    : isCancelled
-    ? "border-zinc-600/60"
-    : "border-purple-400/40 shadow-[0_0_14px_rgba(168,85,247,0.14)]"
-}`}
+              className="rounded-2xl border border-white/10 bg-zinc-900/60 p-4 transition-all"
             >
-              <div className="mb-2 flex items-center justify-between">
-                <div>
-                  <p className="font-bold">
-                    {prediction.matches?.team_a}
-                    {" vs "}
-                    {prediction.matches?.team_b}
-                  </p>
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <p className="font-bold">
+                  {prediction.matches?.team_a}
+                  {" vs "}
+                  {prediction.matches?.team_b}
+                </p>
 
-                  <p className="text-sm text-zinc-500">
-                    Choix : {prediction.selected_team}
-                  </p>
-                </div>
-
-                <div>
-                  {isWon && (
-                    <span className="text-green-400">
-                     GAGNÉ
-                    </span>
-                  )}
-
-                  {isLost && (
-                    <span className="text-red-400">
-                     PERDU
-                    </span>
-                  )}
-
-                  {isCancelled && (
-                    <span className="text-zinc-400">
-                     ANNULÉ
-                    </span>
-                  )}
-
-                  {!isWon && !isLost && !isCancelled && (
-                    <span className="text-purple-400">
-                     EN ATTENTE
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex justify-between text-sm">
-                <span>
-                  Stake : {prediction.stake}
-                </span>
-
-                <span>
-                  Odds : {Number(prediction.odds).toFixed(2)}
+                <span
+                  className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${
+                    isWon
+                      ? "border-green-400/50 bg-green-500/10 text-green-400"
+                      : isLost
+                      ? "border-red-400/50 bg-red-500/10 text-red-400"
+                      : isCancelled
+                      ? "border-zinc-500/50 bg-zinc-500/10 text-zinc-400"
+                      : "border-purple-400/50 bg-purple-500/10 text-purple-300"
+                  }`}
+                >
+                  {isWon ? "GAGNÉ" : isLost ? "PERDU" : isCancelled ? "ANNULÉ" : "EN ATTENTE"}
                 </span>
               </div>
+
+              <p className="text-sm text-zinc-500">
+                Choix : {prediction.selected_team} · Mise {prediction.stake} · Cote {Number(prediction.odds).toFixed(2)}
+              </p>
 
               {isWon && (
   <div className="mt-2">
     <p className="font-bold text-green-400">
-      +{gain} pts
+      +{gain} pts · +{xpGain} XP{prediction.rating_delta != null ? ` · +${prediction.rating_delta} PR` : ""}
     </p>
-
-    <p className="text-sm font-bold text-purple-300">
-      +{xpGain} XP
-    </p>
-
-    {prediction.rating_delta != null && (
-      <p className="text-sm font-bold text-red-400">
-        +{prediction.rating_delta} PR
-      </p>
-    )}
   </div>
 )}
 
               {isLost && (
   <div className="mt-2">
     <p className="font-bold text-red-400">
-      -{prediction.stake} pts
+      -{prediction.stake} pts · +{lossXp} XP{prediction.rating_delta != null ? ` · ${prediction.rating_delta} PR` : ""}
     </p>
 
     {insuranceRefund > 0 && (
-      <p className="text-sm font-bold text-emerald-400">
+      <p className="mt-1 text-sm font-bold text-emerald-400">
         +{insuranceRefund} pts remboursés (assurance)
-      </p>
-    )}
-
-    <p className="text-sm font-bold text-purple-300">
-      +{lossXp} XP
-    </p>
-
-    {prediction.rating_delta != null && (
-      <p className="text-sm font-bold text-red-400">
-        {prediction.rating_delta} PR
       </p>
     )}
   </div>

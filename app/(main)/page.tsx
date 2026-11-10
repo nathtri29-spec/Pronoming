@@ -7,13 +7,20 @@ import { XpBar } from "@/components/xp-bar"
 import { WinRecapModal, type WonRecapItem } from "@/components/win-recap-modal"
 import { HomeSkeleton } from "@/components/home-skeleton"
 import { useRouter } from "next/navigation"
-import { FileText, Gamepad2, Flame, ChevronDown, Gift } from "lucide-react"
+import { FileText, Gamepad2, Gift } from "lucide-react"
 import { motion, useReducedMotion } from "framer-motion"
 import { AnimatedNumber } from "@/components/animated-number"
 import { computeCommunityOdds } from "@/lib/odds"
 import { useToast } from "@/components/toast-provider"
 import { useProfile } from "@/components/profile-provider"
-import { GAMES, getGameColor } from "@/lib/games"
+import { getGameColor } from "@/lib/games"
+
+const CHIP_GAMES: { value: string; label: string }[] = [
+  { value: "League of Legends", label: "LoL" },
+  { value: "CS2", label: "CS2" },
+  { value: "Valorant", label: "Valorant" },
+  { value: "Rocket League", label: "Rocket League" },
+]
 
 const gridVariants = {
   hidden: {},
@@ -39,7 +46,6 @@ export default function Home() {
   const router = useRouter()
   const toast = useToast()
   const [selectedGame, setSelectedGame] = useState<string | null>(null)
-  const [showGameMenu, setShowGameMenu] = useState(false)
   const [pendingStakesByMatch, setPendingStakesByMatch] = useState<Record<number, { a: number; b: number }>>({})
   const [winRecap, setWinRecap] = useState<WonRecapItem[] | null>(null)
   const reduceMotion = useReducedMotion()
@@ -207,6 +213,11 @@ export default function Home() {
     }
   )
 
+  const gameCounts: Record<string, number> = {}
+  for (const { value } of CHIP_GAMES) {
+    gameCounts[value] = matches.filter((m) => m.game === value).length
+  }
+
   if (profileLoading || loading) {
   return <HomeSkeleton />
 }
@@ -277,60 +288,32 @@ export default function Home() {
           </button>
         )}
 
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="flex items-center gap-2 text-xl font-bold">
-            <Flame className="h-5 w-5 text-orange-400" strokeWidth={2.5} />
-            EN DIRECT & À VENIR
-          </h2>
+        <div className="-mx-4 mb-4 mt-1 flex gap-2 overflow-x-auto px-4 pb-1">
+          <button
+            onClick={() => setSelectedGame(null)}
+            className={`shrink-0 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-bold transition-colors ${
+              selectedGame === null
+                ? "border-purple-500 bg-purple-600 text-white"
+                : "border-white/15 bg-white/5 text-zinc-400"
+            }`}
+          >
+            Tous · {matches.length}
+          </button>
 
-          <div className="relative">
+          {CHIP_GAMES.map(({ value, label }) => (
             <button
-              onClick={() => setShowGameMenu((v) => !v)}
-              className="flex items-center gap-1 text-xs font-bold text-purple-400"
+              key={value}
+              onClick={() => setSelectedGame(value)}
+              className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-bold transition-colors ${
+                selectedGame === value
+                  ? "border-purple-500 bg-purple-600 text-white"
+                  : "border-white/15 bg-white/5 text-zinc-400"
+              }`}
             >
-              {(selectedGame ?? "Tous les jeux").toUpperCase()}
-              <ChevronDown className="h-3.5 w-3.5" />
+              <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: getGameColor(value) }} />
+              {label} · {gameCounts[value]}
             </button>
-
-            {showGameMenu && (
-              <>
-                <div className="fixed inset-0 z-20" onClick={() => setShowGameMenu(false)} />
-
-                <div className="absolute right-0 top-full z-30 mt-2 w-48 overflow-hidden rounded-xl border border-white/10 bg-zinc-950 shadow-xl">
-                  <button
-                    onClick={() => {
-                      setSelectedGame(null)
-                      setShowGameMenu(false)
-                    }}
-                    className={`block w-full px-4 py-2.5 text-left text-sm font-bold ${
-                      selectedGame === null ? "bg-purple-600 text-white" : "text-zinc-300"
-                    }`}
-                  >
-                    Tous les jeux
-                  </button>
-
-                  {GAMES.map((game) => (
-                    <button
-                      key={game}
-                      onClick={() => {
-                        setSelectedGame(game)
-                        setShowGameMenu(false)
-                      }}
-                      className={`flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-bold ${
-                        selectedGame === game ? "bg-purple-600 text-white" : "text-zinc-300"
-                      }`}
-                    >
-                      <span
-                        className="h-2 w-2 shrink-0 rounded-full"
-                        style={{ background: getGameColor(game) }}
-                      />
-                      {game}
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
+          ))}
         </div>
 
         <motion.div variants={gridVariants} initial="hidden" animate="show" className="space-y-4">

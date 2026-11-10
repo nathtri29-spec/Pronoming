@@ -315,13 +315,39 @@ export default function MatchDetailPage() {
                 Mise
               </label>
 
-              <input
-                type="number"
-                placeholder="Entre ta mise"
-                value={stake || ""}
-                onChange={(e) => setStake(Number(e.target.value))}
-                className="mt-2 w-full rounded-xl border border-zinc-700 bg-zinc-900 p-4 text-white outline-none focus:border-purple-500"
-              />
+              <p className="mt-2 text-center text-3xl font-extrabold text-white">{stake} pts</p>
+
+              <div className="mt-3 flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setStake((s) => Math.max(0, s - 10))}
+                  className="h-12 w-12 shrink-0 rounded-xl border border-zinc-700 bg-zinc-900 text-lg font-extrabold text-white"
+                >
+                  −10
+                </button>
+
+                <input
+                  type="range"
+                  min={0}
+                  max={Math.max(maxStake, 0)}
+                  value={Math.min(stake, maxStake)}
+                  onChange={(e) => setStake(Number(e.target.value))}
+                  className="h-1.5 w-full flex-1 appearance-none rounded-full accent-purple-500"
+                  style={{
+                    background: `linear-gradient(to right, #c084fc, #dc2626 ${
+                      maxStake > 0 ? (Math.min(stake, maxStake) / maxStake) * 100 : 0
+                    }%, #3f3f46 ${maxStake > 0 ? (Math.min(stake, maxStake) / maxStake) * 100 : 0}%)`,
+                  }}
+                />
+
+                <button
+                  type="button"
+                  onClick={() => setStake((s) => Math.min(maxStake, s + 10))}
+                  className="h-12 w-12 shrink-0 rounded-xl border border-zinc-700 bg-zinc-900 text-lg font-extrabold text-white"
+                >
+                  +10
+                </button>
+              </div>
 
               <p className="mt-2 text-sm font-bold text-white">
                 Mise maximale : {maxStake} points
